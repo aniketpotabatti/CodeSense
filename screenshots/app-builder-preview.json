@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "CodeSense",
+      "hasCanvas": false,
+      "bodyTextLen": 350,
+      "bodyTextHash": "81b467e42805f92fad6deaccdfab1f40925591153eaa6b54ff0e8832f1888672",
+      "bodyTextPrefix": "CodeSense TypeScript Explain Review retry.ts graph.py pool.go Ed",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "CodeSense",
+      "hasCanvas": false,
+      "bodyTextLen": 303,
+      "bodyTextHash": "d7f59efde92daf4e83e85b696ba3ed4413e1eda8079ebbe8ff913d7a0f309610",
+      "bodyTextPrefix": "CodeSense retry.ts graph.py pool.go Editing retry.ts Loading edi",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
