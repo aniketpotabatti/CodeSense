@@ -51,7 +51,7 @@ export GEMINI_API_KEY=gemini-3.6-flash
 node server.cjs
 ```
 
-Provider priority: **Anthropic → xAI → OpenAI → demo**.
+Provider priority: **Anthropic → xAI → Google Gemini → OpenAI → demo**.
 
 ---
 
