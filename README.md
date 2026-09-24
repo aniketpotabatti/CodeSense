@@ -51,7 +51,25 @@ export GEMINI_API_KEY=gemini-3.6-flash
 node server.cjs
 ```
 
-Provider priority: **Anthropic → xAI → OpenAI → demo**.
+Provider priority: **Google Gemini → Anthropic → xAI → OpenAI → demo**.
+
+### Bring your own key (inside the app)
+
+Open **Settings** and paste a key into **API key (optional)**, then press **Save key**. Leave
+**Provider** on *Auto-detect from key* and CodeSense picks the provider from the key prefix:
+
+| Key starts with         | Provider                   |
+| ----------------------- | -------------------------- |
+| `sk-ant-…`              | Anthropic Claude           |
+| `xai-…`                 | xAI Grok                   |
+| `AIza…` / `AQ…`         | Google Gemini              |
+| `sk-…` or anything else | OpenAI / OpenAI-compatible |
+
+- The key is kept in this browser's `localStorage` only and sent per request as the
+  `X-Codesense-Key` header (plus `X-Codesense-Provider` when you pick one). The gateway never
+  writes or logs it, and an in-app key takes priority over the server env vars.
+- The signal pill in the header shows **demo** in amber/tan while no key is set and flips to
+  **Got API Key** with a green dot once a key is saved. **Clear key** returns it to demo.
 
 ---
 
@@ -63,7 +81,7 @@ Provider priority: **Anthropic → xAI → OpenAI → demo**.
 2. **Review** — press `Ctrl/Cmd+S` or click **Review**
 3. **Suggest** — pause while typing; accept ghost text with **Tab**
 4. Switch language (TypeScript, JavaScript, Python, Go, Rust, Java) and load a sample
-5. Open **Settings** to toggle modes and adjust debounce (100–800 ms)
+5. Open **Settings** to toggle modes, adjust debounce (100–800 ms), and paste your own provider key
 
 ---
 
@@ -254,6 +272,9 @@ In VS Code: **Developer: Install Extension from Location…** → select this fo
 
 ---
 
+## Contributing
+
+Contributions are welcome! Please fork the repo and submit a pull request.
 
 
 ## License

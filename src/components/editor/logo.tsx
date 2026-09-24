@@ -5,28 +5,24 @@ export function Logo({ className }: { className?: string }) {
     <div className={cn("flex items-center gap-2.5", className)}>
       <span
         aria-hidden="true"
-        className="flex size-7 items-center justify-center rounded-md bg-surface-2 text-accent shadow-border"
+        className="flex size-8 items-center justify-center rounded-xl bg-[#13151b] border border-[#232733] shadow-[0_2px_8px_rgba(0,0,0,0.35)] text-[#00e5ff]"
       >
-        <svg viewBox="0 0 16 16" className="size-3.5" fill="none">
-          <path
-            d="M6 3.5 2.75 8 6 12.5"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M10 3.5 13.25 8 10 12.5"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity="0.7"
-          />
+        <svg
+          viewBox="0 0 24 24"
+          className="size-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="8 7 3 12 8 17" />
+          <polyline points="16 7 21 12 16 17" />
         </svg>
       </span>
-      <span className="font-sans text-sm font-semibold tracking-tight">
-        Code<span className="text-accent">Sense</span>
+      <span className="font-sans text-[15px] font-bold tracking-tight select-none">
+        <span className="text-white">Code</span>
+        <span className="text-[#00e5ff]">Sense</span>
       </span>
     </div>
   );
