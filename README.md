@@ -57,9 +57,13 @@ export GEMINI_MODEL=gemini-3.6-flash
 node server.cjs
 ```
 
+<<<<<<< HEAD
 ---
 
 ### Bring Your Own Key (Web UI)
+=======
+### Bring your own key (inside the app)
+>>>>>>> 20b50d2 (Update README)
 
 - Open **Settings** in the app and paste your API key in **API key (optional)**.
 - Press **Save key**. Leave **Provider** on *Auto-detect from key* and CodeSense will choose by key prefix:
@@ -71,9 +75,18 @@ node server.cjs
 | `AIza…` / `AQ…`      | Google Gemini             |
 | `sk-…` or other      | OpenAI / OpenAI-compatible |
 
+<<<<<<< HEAD
 - The key is kept in your browser's `localStorage` and sent per request as the `X-Codesense-Key` header (plus `X-Codesense-Provider` if set).
 - Your key is never logged or written to disk by the gateway. In-app key overrides any server env variable.
 - The signal in the header shows **demo** (amber) without a key, turns **Got API Key** (green) when set, and goes back to **demo** if you clear the key.
+=======
+- The key is kept in this browser's `localStorage` only and sent per request as the
+  `X-Codesense-Key` header (plus `X-Codesense-Provider` when you pick one). The gateway never
+  writes or logs it, and an in-app key takes priority over the server env vars.
+- The signal pill in the header shows **demo** in amber/tan while no key is set and flips to
+  **Got API Key** with a green dot once a key is saved. **Clear key** returns it to demo.
+=======
+>>>>>>> 20b50d2 (Update README)
 
 ---
 
