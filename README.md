@@ -1,26 +1,28 @@
-<div align="center">
-    <img src="artifacts\imagine_images\7ed09951-b2a2-4191-8e47-c4de566cbaa9.jpg">
-</div>
+<p align="center">
+  <img src="artifacts/imagine_images/7ed09951-b2a2-4191-8e47-c4de566cbaa9.jpg" alt="CodeSense Banner">
+</p>
 
 # CodeSense
 
 **Real-time code explanation, review, and completion — inside your editor.**
 
-CodeSense streams focused LLM responses as you select, save, or pause. No multi-step agents. No RAG. Just three fast modes over a shared SSE gateway.
-
-
-| Mode        | Trigger                       | Output                                 |
-| ----------- | ----------------------------- | -------------------------------------- |
-| **Explain** | Selection or manual           | Streaming natural-language explanation |
-| **Review**  | Save (`Ctrl/Cmd+S`) or manual | Structured feedback panel              |
-| **Suggest** | Idle (debounced)              | Inline ghost-text completion           |
-
+CodeSense delivers fast, focused LLM responses as you select, save, or pause — no multi-step agents, no RAG, just three modes over a unified SSE gateway.
 
 ---
 
-## Quick start
+## Features
 
-**Requirements:** Node.js 18+ (built-in `http` / `fs` only — no `npm install`)
+| Mode         | Trigger                        | Output                                 |
+|--------------|-------------------------------|----------------------------------------|
+| **Explain**  | Selection or manual            | Streaming natural-language explanation |
+| **Review**   | Save (`Ctrl/Cmd+S`) or manual  | Structured feedback panel              |
+| **Suggest**  | Idle (debounced)               | Inline ghost-text completion           |
+
+---
+
+## Quick Start
+
+**Requirements:** Node.js 18+ (uses built-in `http`/`fs`, no `npm install` needed).
 
 ```bash
 cd codesense-app
@@ -28,11 +30,15 @@ node server.cjs
 # or: ./start.sh
 ```
 
-Open **[http://localhost:8080](http://localhost:8080)**
+Then open **[http://localhost:8080](http://localhost:8080)** in your browser.
 
-### Optional API keys
+---
 
-Without keys, the gateway runs in **demo mode** (streamed synthetic responses so the UI is fully usable offline).
+### API Keys (Optional)
+
+By default, the gateway runs in **demo mode**, streaming offline synthetic responses so the UI is fully usable.
+
+To use real providers, export your API keys as environment variables:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-…     # preferred (Claude Haiku-class)
@@ -42,95 +48,82 @@ export OPENAI_API_KEY=sk-…            # fallback
 
 export GEMINI_API_KEY=AQ-…
 
-# Optional model overrides
+# Optional model overrides:
 export ANTHROPIC_MODEL=claude-3-5-haiku-latest
 export XAI_MODEL=grok-3-mini
 export OPENAI_MODEL=gpt-4o-mini
-export GEMINI_API_KEY=gemini-3.6-flash
+export GEMINI_MODEL=gemini-3.6-flash
 
 node server.cjs
 ```
 
-<<<<<<< HEAD
-Provider priority: **Google Gemini → Anthropic → xAI → OpenAI → demo**.
+---
 
-### Bring your own key (inside the app)
+### Bring Your Own Key (Web UI)
 
-Open **Settings** and paste a key into **API key (optional)**, then press **Save key**. Leave
-**Provider** on *Auto-detect from key* and CodeSense picks the provider from the key prefix:
+- Open **Settings** in the app and paste your API key in **API key (optional)**.
+- Press **Save key**. Leave **Provider** on *Auto-detect from key* and CodeSense will choose by key prefix:
 
-| Key starts with         | Provider                   |
-| ----------------------- | -------------------------- |
-| `sk-ant-…`              | Anthropic Claude           |
-| `xai-…`                 | xAI Grok                   |
-| `AIza…` / `AQ…`         | Google Gemini              |
-| `sk-…` or anything else | OpenAI / OpenAI-compatible |
+| Key prefix           | Provider                   |
+|----------------------|---------------------------|
+| `sk-ant-…`           | Anthropic Claude           |
+| `xai-…`              | xAI Grok                  |
+| `AIza…` / `AQ…`      | Google Gemini             |
+| `sk-…` or other      | OpenAI / OpenAI-compatible |
 
-- The key is kept in this browser's `localStorage` only and sent per request as the
-  `X-Codesense-Key` header (plus `X-Codesense-Provider` when you pick one). The gateway never
-  writes or logs it, and an in-app key takes priority over the server env vars.
-- The signal pill in the header shows **demo** in amber/tan while no key is set and flips to
-  **Got API Key** with a green dot once a key is saved. **Clear key** returns it to demo.
-=======
-Provider priority: **Anthropic → xAI → Google Gemini → OpenAI → demo**.
->>>>>>> c7953a6a2e51b96ad2fa173caf1384f321d6a9c2
+- The key is kept in your browser's `localStorage` and sent per request as the `X-Codesense-Key` header (plus `X-Codesense-Provider` if set).
+- Your key is never logged or written to disk by the gateway. In-app key overrides any server env variable.
+- The signal in the header shows **demo** (amber) without a key, turns **Got API Key** (green) when set, and goes back to **demo** if you clear the key.
 
 ---
 
+## Try CodeSense
 
-
-## Try it
-
-1. **Explain** — select a block in the Monaco editor, or click **Explain**
+1. **Explain** — select code in the Monaco editor, or click **Explain**
 2. **Review** — press `Ctrl/Cmd+S` or click **Review**
 3. **Suggest** — pause while typing; accept ghost text with **Tab**
-4. Switch language (TypeScript, JavaScript, Python, Go, Rust, Java) and load a sample
-5. Open **Settings** to toggle modes, adjust debounce (100–800 ms), and paste your own provider key
+4. Switch among languages: TypeScript, JavaScript, Python, Go, Rust, Java — and load a sample
+5. Use **Settings** to toggle features, adjust debounce (100–800 ms), or paste your own provider key
 
 ---
-
-
 
 ## Architecture
 
-```
+```text
 ┌──────────────────────┐     ┌───────────────────────────┐
 │  Web (Monaco Editor) │     │  VS Code Extension        │
 │  public/app.js       │     │  vscode-extension/        │
 └──────────┬───────────┘     └──────────┬────────────────┘
-           │  snippet + mode + cursor  │
+           │ snippet + mode + cursor    │
            └─────────────┬──────────────┘
                          ▼
               ┌────────────────────┐
-              │  Gateway           │
-              │  POST /api/codesense
-              │  • prompt router   │
-              │  • rate limit      │
-              │  • token budget    │
+              │     Gateway        │
+              │ POST /api/codesense│
+              │ • prompt router    │
+              │ • rate limit       │
+              │ • token budget     │
               └─────────┬──────────┘
                         ▼
               ┌────────────────────┐
-              │  LLM providers     │
-              │  Anthropic / xAI / │
-              │  OpenAI / demo     │
-              │  stream: always on │
+              │   LLM Providers    │
+              │ Anthropic / xAI /  │
+              │ OpenAI / Gemini /  │
+              │ demo (streaming)   │
               └────────────────────┘
 ```
 
 ---
 
+## API Reference
 
-
-## API
-
-
-
-### Health
+### Health Check
 
 ```http
 GET /api/health
 ```
 
+Response example:
 ```json
 {
   "ok": true,
@@ -139,9 +132,9 @@ GET /api/health
 }
 ```
 
+---
 
-
-### Codesense (SSE)
+### Main Endpoint (`/api/codesense`)
 
 ```http
 POST /api/codesense
@@ -158,43 +151,40 @@ Content-Type: application/json
 
 **Response:** `text/event-stream`
 
+Example:
 ```
 data: {"delta":"This function"}
 data: {"delta":" adds two numbers…"}
 data: [DONE]
 ```
 
-**Errors (JSON body or SSE payload):**
-
+**Error Codes:**
 
 | Code                   | Meaning                                      |
-| ---------------------- | -------------------------------------------- |
-| `INVALID_MODE`         | `mode` not one of explain / review / suggest |
+|------------------------|----------------------------------------------|
+| `INVALID_MODE`         | Invalid `mode` value                         |
 | `EMPTY_SNIPPET`        | Missing or blank `snippet`                   |
 | `RATE_LIMITED`         | >30 requests/min per client IP               |
 | `TOKEN_LIMIT_EXCEEDED` | Snippet over ~800 token budget               |
 | `PROVIDER_TIMEOUT`     | Upstream LLM failure                         |
 
-
 ---
 
+## Project Structure
 
-
-## Project layout
-
-```
+```text
 codesense-app/
 ├── server.cjs              # HTTP server + SSE gateway (port 8080)
 ├── start.sh                # Convenience launcher
 ├── lib/
-│   ├── prompts.mjs         # System + mode templates, token estimate
+│   ├── prompts.mjs         # System + mode templates, token counting
 │   ├── rateLimit.mjs       # Token-bucket: 30 req/min per client
 │   └── providers.mjs       # Anthropic / xAI / OpenAI / demo streams
 ├── public/
-│   ├── index.html          # Shell
-│   ├── styles.css          # Dark editor chrome
+│   ├── index.html          # App shell
+│   ├── styles.css          # Editor theming
 │   └── app.js              # Monaco + SSE client + settings
-└── vscode-extension/       # Optional VS Code target
+└── vscode-extension/       # Optional VS Code extension
     ├── package.json
     ├── tsconfig.json
     └── src/extension.ts
@@ -202,11 +192,9 @@ codesense-app/
 
 ---
 
+## VS Code Extension
 
-
-## VS Code extension
-
-The extension talks to the **same gateway**.
+Works with the **same gateway**.
 
 ```bash
 cd vscode-extension
@@ -214,65 +202,56 @@ npm install
 npm run compile
 ```
 
-In VS Code: **Developer: Install Extension from Location…** → select this folder.
-
+In VS Code: use **Developer: Install Extension from Location…** then select this folder.
 
 | Setting                   | Default                 | Description                    |
-| ------------------------- | ----------------------- | ------------------------------ |
+|---------------------------|-------------------------|--------------------------------|
 | `codesense.gatewayUrl`    | `http://127.0.0.1:8080` | Gateway base URL               |
-| `codesense.debounceMs`    | `300`                   | Debounce for explain / suggest |
+| `codesense.debounceMs`    | `300`                   | Debounce for explain/suggest   |
 | `codesense.enableExplain` | `true`                  | Explain on selection           |
 | `codesense.enableReview`  | `true`                  | Review on save                 |
 | `codesense.enableSuggest` | `true`                  | Inline completions             |
 
-
-**Commands:** `CodeSense: Explain Selection`, `CodeSense: Review Document`, `CodeSense: Toggle Suggest`
-
----
-
-
-
-## Design decisions
-
-
-| Concern            | Choice                        | Why                                        |
-| ------------------ | ----------------------------- | ------------------------------------------ |
-| Streaming          | SSE over `fetch`              | Simple unidirectional LLM streams          |
-| API keys           | Server-side only              | Never exposed to the browser               |
-| Debounce           | 300 ms default                | Balance responsiveness vs. cost            |
-| Context window     | ±30 / +10 lines around cursor | Keeps input under ~800 tokens              |
-| Default model path | Fast / cheap (Haiku-class)    | Latency is the product for keystroke UX    |
-| Ghost text         | Monaco / VS Code native APIs  | No DOM hacks; respects editor UX           |
-| Dependencies       | Node built-ins + CDN Monaco   | `npm install` not required for the web app |
-
-
-
-
-### Explicitly out of scope (v1)
-
-- Multi-step agent loops or tool execution  
-- Persistent conversation history  
-- RAG / codebase indexing  
-- Auth / user accounts  
-- Jupyter / notebooks
+**Commands:**  
+- `CodeSense: Explain Selection`  
+- `CodeSense: Review Document`  
+- `CodeSense: Toggle Suggest`
 
 ---
 
+## Design Decisions
 
+| Concern            | Choice                        | Reason                                      |
+|--------------------|------------------------------|---------------------------------------------|
+| Streaming          | SSE over `fetch`              | Simple, real-time LLM streaming             |
+| API keys           | Server-side only              | Never exposed to browser                    |
+| Debounce           | 300 ms default                | Balances responsiveness & cost              |
+| Context window     | ±30 / +10 lines around cursor | Keeps input under ~800 tokens               |
+| Default model path | Fast/Cheap (Haiku-class)      | Prioritizes latency for keystroke UX        |
+| Ghost text         | Monaco/VS Code native APIs    | No DOM hacks; proper editor UX              |
+| Dependencies       | Node built-ins & CDN Monaco   | No `npm install` required for web           |
 
-## Configuration reference
+### Out of Scope (v1)
 
+- Multi-step agent loops/tool execution  
+- Persistent conversation memory  
+- RAG/codebase indexing  
+- Authentication/user accounts  
+- Jupyter/notebook support
 
-| Env var             | Purpose                      |
-| ------------------- | ---------------------------- |
-| `PORT`              | Listen port (default `8080`) |
-| `ANTHROPIC_API_KEY` | Primary provider             |
-| `ANTHROPIC_MODEL`   | Override Anthropic model id  |
-| `XAI_API_KEY`       | xAI / Grok provider          |
-| `XAI_MODEL`         | Override xAI model id        |
-| `OPENAI_API_KEY`    | OpenAI fallback              |
-| `OPENAI_MODEL`      | Override OpenAI model id     |
+---
 
+## Configuration Reference
+
+| Env var              | Purpose                        |
+|----------------------|--------------------------------|
+| `PORT`               | Listen port (default: `8080`)  |
+| `ANTHROPIC_API_KEY`  | Primary provider key           |
+| `ANTHROPIC_MODEL`    | Override Anthropic model id    |
+| `XAI_API_KEY`        | xAI / Grok provider key        |
+| `XAI_MODEL`          | Override xAI model id          |
+| `OPENAI_API_KEY`     | OpenAI fallback key            |
+| `OPENAI_MODEL`       | Override OpenAI model id       |
 
 ---
 
@@ -280,6 +259,7 @@ In VS Code: **Developer: Install Extension from Location…** → select this fo
 
 Contributions are welcome! Please fork the repo and submit a pull request.
 
+---
 
 ## License
 
