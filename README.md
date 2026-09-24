@@ -51,6 +51,7 @@ export GEMINI_API_KEY=gemini-3.6-flash
 node server.cjs
 ```
 
+<<<<<<< HEAD
 Provider priority: **Google Gemini → Anthropic → xAI → OpenAI → demo**.
 
 ### Bring your own key (inside the app)
@@ -70,6 +71,9 @@ Open **Settings** and paste a key into **API key (optional)**, then press **Save
   writes or logs it, and an in-app key takes priority over the server env vars.
 - The signal pill in the header shows **demo** in amber/tan while no key is set and flips to
   **Got API Key** with a green dot once a key is saved. **Clear key** returns it to demo.
+=======
+Provider priority: **Anthropic → xAI → Google Gemini → OpenAI → demo**.
+>>>>>>> c7953a6a2e51b96ad2fa173caf1384f321d6a9c2
 
 ---
 
