@@ -4,6 +4,7 @@ import { parseReview } from "./parse-review";
 import { cloneSamples } from "./samples";
 import { extractSnippet, stripCompletionFences } from "./snippet";
 import { CodesenseApiError, fetchAiHealth, streamCodesense } from "./stream";
+import type { editor as MonacoEditor } from "monaco-editor";
 import {
   DEFAULT_SETTINGS,
   type FileTab,
@@ -25,6 +26,7 @@ type Store = {
   activeFileId: string;
   cursor: { line: number; col: number };
   selection: string;
+  editor: MonacoEditor.IStandaloneCodeEditor | null;
   settings: Settings;
   panelTab: Exclude<Mode, "suggest">;
   coachDismissed: boolean;
@@ -42,6 +44,7 @@ type Store = {
   setLanguage: (language: string) => void;
   setCursor: (line: number, col: number) => void;
   setSelection: (text: string) => void;
+  setEditor: (editor: MonacoEditor.IStandaloneCodeEditor | null) => void;
   patchSettings: (patch: Partial<Settings>) => void;
   setPanelTab: (tab: Exclude<Mode, "suggest">) => void;
   dismissCoach: () => void;
@@ -51,6 +54,7 @@ type Store = {
   runExplain: (source?: "select" | "manual") => Promise<void>;
   runReview: (source?: "save" | "manual") => Promise<void>;
   runSuggest: (signal: AbortSignal) => Promise<string>;
+  applySuggest: (text: string) => void;
 };
 
 const emptyInsight = (): Insight => ({
@@ -80,6 +84,7 @@ export const useCodesense = create<Store>()(
       activeFileId: "retry",
       cursor: { line: 1, col: 1 },
       selection: "",
+      editor: null,
       settings: DEFAULT_SETTINGS,
       panelTab: "explain",
       coachDismissed: false,
@@ -106,6 +111,7 @@ export const useCodesense = create<Store>()(
           ),
         })),
       setCursor: (line, col) => set({ cursor: { line, col } }),
+      setEditor: (editor) => set({ editor }),
       setSelection: (text) => set({ selection: text }),
       patchSettings: (patch) =>
         set((state) => ({ settings: { ...state.settings, ...patch } })),
@@ -334,6 +340,25 @@ export const useCodesense = create<Store>()(
           });
           return "";
         }
+      },
+
+      applySuggest: (text) => {
+        const editor = get().editor;
+        if (!editor) return;
+        const pos = editor.getPosition();
+        if (!pos) return;
+        editor.executeEdits("", [
+          {
+            range: {
+              startLineNumber: pos.lineNumber,
+              startColumn: pos.column,
+              endLineNumber: pos.lineNumber,
+              endColumn: pos.column,
+            },
+            text,
+            forceMoveMarkers: true,
+          },
+        ]);
       },
     }),
     {

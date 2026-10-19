@@ -9,6 +9,77 @@ import {
 
 const MODEL = "grok-4.5";
 
+export const PROVIDER_LABELS: Record<string, string> = {
+  gemini: "Google Gemini",
+  anthropic: "Anthropic Claude",
+  xai: "xAI Grok",
+  openai: "OpenAI",
+  demo: "Demo",
+};
+
+export function detectProvider(key: string, requested?: string): string {
+  const wanted = String(requested || "auto").toLowerCase();
+  if (wanted === "gemini" || wanted === "google") return "gemini";
+  if (wanted === "anthropic") return "anthropic";
+  if (wanted === "xai") return "xai";
+  if (wanted === "openai") return "openai";
+  if (key.startsWith("sk-ant-")) return "anthropic";
+  if (key.startsWith("xai-")) return "xai";
+  if (key.startsWith("AIza") || key.startsWith("AQ-")) return "gemini";
+  return "openai";
+}
+
+export function readKeyOverride(
+  req: Request,
+): { key: string; provider: string } | null {
+  const key = String(req.headers.get("x-codesense-key") || "").trim();
+  if (!key || key.length > 300) return null;
+  const provider = detectProvider(key, req.headers.get("x-codesense-provider") ?? undefined);
+  return { key, provider };
+}
+
+export function demoResponse(ctx: {
+  mode: string;
+  language: string;
+  snippet: string;
+}): string {
+  const lines = ctx.snippet.split("\n").filter((l) => l.trim());
+  const preview = lines.slice(0, 3).join(" ").slice(0, 80);
+  if (ctx.mode === "explain") {
+    return (
+      "This " +
+      ctx.language +
+      " snippet defines logic around: " +
+      (preview || "the selected code") +
+      ". It processes data step by step, with control flow driven by the surrounding conditions and return paths. " +
+      "The intent is to transform or validate input and produce a deterministic result for the caller."
+    );
+  }
+  if (ctx.mode === "review") {
+    return (
+      "**What's good**\n- Clear structure and readable naming in the " +
+      ctx.language +
+      " code\n- Focused snippet size makes the control flow easy to follow\n\n**What to improve**\n" +
+      "- Consider edge cases (empty input, nulls) explicitly\n- Extract repeated patterns into small helpers if this\ns grows\n" +
+      "- Add a brief comment only where the intent is non-obvious\n\n**Refactor idea**\n" +
+      "- Pull the core branch into a pure function so it is easier to unit-test in isolation."
+    );
+  }
+  if (ctx.mode === "suggest") {
+    const last = lines[lines.length - 1] || "";
+    if (
+      /function\s+\w+\s*\([^)]*\)\s*\{\s*$/.test(last.trim()) ||
+      last.trim().endsWith("{")
+    ) {
+      return "\n  // TODO: implement\n  return null;\n}";
+    }
+    if (/^\s*(const|let|var)\s+\w+\s*=\s*$/.test(last)) return " null;";
+    if (ctx.language === "python") return "\n    pass";
+    return "\n  // completed by CodeSense\n";
+  }
+  return "";
+}
+
 function jsonError(err: GatewayError, status: number, retryAfter?: number) {
   const headers = new Headers({ "Content-Type": "application/json" });
   if (retryAfter) headers.set("Retry-After", String(Math.ceil(retryAfter / 1000)));

@@ -187,7 +187,7 @@ function ExplainBody({
 function severityVariant(severity: ReviewSeverity) {
   switch (severity) {
     case "low":
-      return "secondary";
+      return "default";
     case "medium":
       return "warn";
     case "high":
