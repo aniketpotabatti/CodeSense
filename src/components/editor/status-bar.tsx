@@ -1,8 +1,15 @@
+import { ListChecks } from "lucide-react";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { estimateTokens, extractSnippet } from "@/lib/codesense/snippet";
-import { getActiveFile, useCodesense } from "@/lib/codesense/store";
+import {
+  getActiveFile,
+  useCodesense,
+  type Insight,
+} from "@/lib/codesense/store";
 import { cn } from "@/lib/utils";
 
-export function StatusBar() {
+export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
+  const isMobile = useMediaQuery("(max-width: 767px)");
   const file = useCodesense(getActiveFile);
   const cursor = useCodesense((s) => s.cursor);
   const selection = useCodesense((s) => s.selection);
@@ -10,18 +17,23 @@ export function StatusBar() {
   const aiAvailable = useCodesense((s) => s.aiAvailable);
   const model = useCodesense((s) => s.model);
   const debounceMs = useCodesense((s) => s.settings.debounceMs);
-  const explain = useCodesense((s) => s.explain.status);
-  const review = useCodesense((s) => s.review.status);
+  const explain = useCodesense((s) => s.explain);
+  const review = useCodesense((s) => s.review);
 
   const snippet = selection.trim()
     ? selection
     : extractSnippet(file.content, cursor.line).snippet;
   const tokens = estimateTokens(snippet);
-  const busy = explain === "streaming" || review === "streaming";
+  const busy = explain.status === "streaming" || review.status === "streaming";
+  const hasError =
+    explain.status === "error" || review.status === "error";
 
   let aiLabel = "Checking AI";
-  let aiTone: "muted" | "ok" | "warn" | "busy" = "muted";
-  if (aiAvailable === false) {
+  let aiTone: "muted" | "ok" | "warn" | "busy" | "error" = "muted";
+  if (hasError) {
+    aiLabel = "Error";
+    aiTone = "error";
+  } else if (aiAvailable === false) {
     aiLabel = "AI unavailable";
     aiTone = "warn";
   } else if (aiAvailable) {
@@ -29,18 +41,68 @@ export function StatusBar() {
     aiTone = busy ? "busy" : "ok";
   }
 
+  const insightForLabel = (insight: Insight): string | null => {
+    if (insight.status === "error") return insight.error ?? "Error";
+    return null;
+  };
+  const explainErr = insightForLabel(explain);
+  const reviewErr = insightForLabel(review);
+
   return (
     <footer className="flex h-8 shrink-0 items-center gap-3 overflow-hidden border-t border-border bg-surface px-3 font-mono text-xs text-muted">
-      <span className="tabular-nums">
+      <span
+        className="tabular-nums"
+        title={`Ln ${cursor.line}, Col ${cursor.col}`}
+      >
         Ln {cursor.line}, Col {cursor.col}
       </span>
-      <span className="hidden sm:inline">{file.language}</span>
-      <span className="hidden tabular-nums md:inline">{tokens} tok</span>
-      <span className="hidden tabular-nums lg:inline">{debounceMs}ms</span>
+      <span className="hidden sm:inline" title={file.language}>
+        {file.language}
+      </span>
+      <span
+        className="hidden tabular-nums md:inline"
+        title={`${tokens} tokens`}
+      >
+        {tokens} tok
+      </span>
+      <span
+        className="hidden tabular-nums lg:inline"
+        title={`${debounceMs}ms debounce`}
+      >
+        {debounceMs}ms
+      </span>
+      <span className="hidden sm:inline" title="UTF-8">
+        UTF-8
+      </span>
+      {isMobile && openInsight && (
+        <button
+          type="button"
+          onClick={openInsight}
+          aria-label="Open insights"
+          className="-mr-1 flex h-6 items-center justify-center gap-1.5 rounded-md bg-surface-2 p-1.5 text-muted hover:bg-surface-2/80 hover:text-foreground"
+        >
+          <ListChecks className="size-3.5" />
+          <span className="sr-only">Insights</span>
+        </button>
+      )}
       <span className="ml-auto flex items-center gap-2">
         {remaining !== null && (
-          <span className="hidden tabular-nums sm:inline">{remaining} left</span>
+          <span
+            className="hidden tabular-nums sm:inline"
+            title={`${remaining} requests remaining`}
+          >
+            {remaining} left
+          </span>
         )}
+        <a
+          href="CHANGELOG.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hidden sm:inline underline underline-offset-4 hover:text-accent transition-colors"
+          title="View changelog"
+        >
+          v1
+        </a>
         <span className="flex items-center gap-1.5">
           <span
             className={cn(
@@ -48,10 +110,21 @@ export function StatusBar() {
               aiTone === "ok" && "bg-success",
               aiTone === "busy" && "bg-accent",
               aiTone === "warn" && "bg-destructive",
+              aiTone === "error" && "bg-destructive",
               aiTone === "muted" && "bg-subtle",
             )}
           />
-          <span className="truncate">{aiLabel}</span>
+          <span className="truncate" title={aiLabel}>
+            {aiLabel}
+          </span>
+          {explainErr || reviewErr ? (
+            <span
+              className="text-destructive text-xs"
+              title={(explainErr ?? reviewErr) ?? undefined}
+            >
+              ⚠
+            </span>
+          ) : null}
         </span>
       </span>
     </footer>

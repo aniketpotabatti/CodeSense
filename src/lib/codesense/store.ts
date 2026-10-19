@@ -13,7 +13,7 @@ import {
   type StreamStatus,
 } from "./types";
 
-type Insight = {
+export type Insight = {
   text: string;
   status: StreamStatus;
   error: string | null;
@@ -29,6 +29,8 @@ type Store = {
   panelTab: Exclude<Mode, "suggest">;
   coachDismissed: boolean;
   hasTyped: boolean;
+  feedback: Record<string, "up" | "down">;
+  rateFeedback: (key: string, kind: "up" | "down") => void;
   aiAvailable: boolean | null;
   model: string;
   remaining: number | null;
@@ -81,6 +83,7 @@ export const useCodesense = create<Store>()(
       settings: DEFAULT_SETTINGS,
       panelTab: "explain",
       coachDismissed: false,
+      feedback: {},
       hasTyped: false,
       aiAvailable: null,
       model: "grok-4.5",
@@ -108,6 +111,8 @@ export const useCodesense = create<Store>()(
         set((state) => ({ settings: { ...state.settings, ...patch } })),
       setPanelTab: (tab) => set({ panelTab: tab }),
       dismissCoach: () => set({ coachDismissed: true }),
+      rateFeedback: (key, kind) =>
+        set((state) => ({ feedback: { ...state.feedback, [key]: kind } })),
       markTyped: () => {
         if (!get().hasTyped) set({ hasTyped: true });
       },
@@ -184,7 +189,12 @@ export const useCodesense = create<Store>()(
             explain: { text, status: "done", error: null, review: null },
           });
         } catch (err) {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted) {
+            set({
+              explain: { ...get().explain, status: "idle" },
+            });
+            return;
+          }
           const message = errorMessage(err);
           if (err instanceof CodesenseApiError && err.code === "AI_UNAVAILABLE") {
             set({ aiAvailable: false });
@@ -264,7 +274,12 @@ export const useCodesense = create<Store>()(
             },
           });
         } catch (err) {
-          if (controller.signal.aborted) return;
+          if (controller.signal.aborted) {
+            set({
+              review: { ...get().review, status: "idle" },
+            });
+            return;
+          }
           const message = errorMessage(err);
           if (err instanceof CodesenseApiError && err.code === "AI_UNAVAILABLE") {
             set({ aiAvailable: false });
@@ -293,23 +308,32 @@ export const useCodesense = create<Store>()(
         if (!snippet.trim()) return "";
 
         let text = "";
-        const { remaining } = await streamCodesense(
-          {
-            mode: "suggest",
-            language: file.language,
-            snippet,
-            cursorLine: state.cursor.line,
-            cursorCol: state.cursor.col,
-          },
-          signal,
-          (delta) => {
-            text += delta;
-            set({ suggestPreview: stripCompletionFences(text) });
-          },
-        );
-        const cleaned = stripCompletionFences(text);
-        set({ remaining, suggestPreview: cleaned });
-        return cleaned;
+        try {
+          const { remaining } = await streamCodesense(
+            {
+              mode: "suggest",
+              language: file.language,
+              snippet,
+              cursorLine: state.cursor.line,
+              cursorCol: state.cursor.col,
+            },
+            signal,
+            (delta) => {
+              text += delta;
+              set({ suggestPreview: stripCompletionFences(text) });
+            },
+          );
+          const cleaned = stripCompletionFences(text);
+          set({ remaining, suggestPreview: cleaned });
+          return cleaned;
+        } catch (err) {
+          if (signal.aborted) return "";
+          const message = errorMessage(err);
+          set({
+            suggestPreview: message ? "Error: " + message : "",
+          });
+          return "";
+        }
       },
     }),
     {
@@ -321,6 +345,7 @@ export const useCodesense = create<Store>()(
         activeFileId: state.activeFileId,
         settings: state.settings,
         coachDismissed: state.coachDismissed,
+        feedback: state.feedback,
       }),
     },
   ),

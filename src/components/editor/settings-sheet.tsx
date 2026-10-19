@@ -1,5 +1,6 @@
 import { RotateCcw, Settings2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
@@ -11,6 +12,21 @@ export function SettingsSheet() {
   const settings = useCodesense((s) => s.settings);
   const patchSettings = useCodesense((s) => s.patchSettings);
   const resetFiles = useCodesense((s) => s.resetFiles);
+  const [apiKey, setApiKey] = useState(settings.apiKey);
+
+  function saveApiKey() {
+    patchSettings({ apiKey: apiKey.trim() });
+    setOpen(false);
+    if (apiKey.trim()) {
+      toast.success("API key saved", {
+        description: "Live requests will use the provided key.",
+      });
+    } else {
+      toast.info("API key cleared", {
+        description: "Running in demo mode.",
+      });
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -89,6 +105,29 @@ export function SettingsSheet() {
               <RotateCcw className="size-3.5" />
               Reset sample files
             </Button>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
+              Provider
+            </h3>
+            <div className="flex items-center gap-2 border-border rounded-md bg-input px-2.5 py-1.5 focus-within:ring-accent">
+              <input
+                type="text"
+                value={apiKey}
+                onChange={(event) => setApiKey(event.target.value)}
+                placeholder="sk-…"
+                aria-label="API key"
+                className="flex-1 bg-transparent border-none outline-none text-xs text-foreground placeholder:text-muted"
+              />
+              <Button size="sm" onClick={saveApiKey}>
+                Save key
+              </Button>
+            </div>
+            <p className="text-xs text-muted">
+              Stored in your browser (localStorage). Clear the field and save
+              to go back to demo mode.
+            </p>
           </section>
         </div>
       </SheetContent>

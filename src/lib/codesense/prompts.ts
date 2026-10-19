@@ -30,18 +30,23 @@ ${input.snippet}`,
     return {
       system,
       user: `The developer just saved this file. Perform a concise code review.
-Structure your response EXACTLY with these headings and bullet lists (no other wrapping):
 
-GOOD:
-- one or two concrete strengths
+Return STRICT JSON only — no markdown fences, no preamble, no trailing text. The response must parse as JSON and match this shape exactly:
 
-IMPROVE:
-- one to three actionable issues (what to change, and why)
+{
+  "summary": "plain-language 2-4 sentence summary of what the code does (intent, not syntax)",
+  "walkthrough": "brief walkthrough of the code, block by block",
+  "risks": [
+    { "line": <number | null>, "severity": "low | medium | high", "msg": "actionable issue and why" }
+  ],
+  "refactor": { "diff": "<optional replacement snippet or empty string>", "description": "why this refactor helps" }
+}
 
-REFACTOR:
-- a single optional refactor suggestion
-
-Keep the entire response under 200 words. Do not invent bugs that are not in the code.
+Rules:
+- Base every risk on actual code in the snippet; do not invent bugs that are not present.
+- Line numbers are 1-based, or null when not applicable to a specific line.
+- Keep the whole response concise (roughly under 200 words of content).
+- If no refactor applies, set refactor.diff to "".
 
 File:
 ${input.snippet}`,

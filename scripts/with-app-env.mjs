@@ -63,7 +63,11 @@ export function readAppEnv(root) {
 
 /** File values under the process environment: an explicit override wins. */
 export function mergeAppEnv(appEnv, processEnv) {
-  return { ...appEnv, ...processEnv };
+  const env = { ...appEnv, ...processEnv };
+  // Spreading `process.env` can drop `PATH` on some Windows/Node setups, but the
+  // spawned command needs it to locate binaries (e.g. `node` for `vite.cmd`).
+  if (processEnv.PATH) env.PATH = processEnv.PATH;
+  return env;
 }
 
 /**
@@ -121,7 +125,14 @@ console.log("[with-app-env] main called with", argv);
 
   console.log("[with-app-env] PATH:", env.PATH);
 
-  const child = spawn(command, args, { stdio: "inherit", env });
+  // On Windows there is no `vite` executable, only `vite.cmd`. `spawn` cannot
+  // launch `.cmd` files directly (EINVAL), so run them through the system
+  // shell (`shell: true`), which cmd.exe provides natively on Windows.
+  const spawnCommand =
+    process.platform === "win32" ? `${command}.cmd` : command;
+  const spawnOptions = { stdio: "inherit", env };
+  if (process.platform === "win32") spawnOptions.shell = true;
+  const child = spawn(spawnCommand, args, spawnOptions);
 
   // The dev server is long-running and is stopped by signalling this wrapper.
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
@@ -136,5 +147,9 @@ console.log("[with-app-env] main called with", argv);
   child.on("exit", (code, signal) => {
     process.exit(exitStatusFromChild(code, signal));
   });
+}
+
+if (isMainModule(import.meta.url)) {
+  main(process.argv.slice(2));
 }
 

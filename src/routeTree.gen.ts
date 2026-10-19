@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiCodesenseRouteImport } from './routes/api/codesense'
+import { Route as ApiDetectRouteImport } from './routes/api/detect'
+import { Route as ApiReviewRouteImport } from './routes/api/review'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +24,49 @@ const ApiCodesenseRoute = ApiCodesenseRouteImport.update({
   path: '/api/codesense',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDetectRoute = ApiDetectRouteImport.update({
+  id: '/api/detect',
+  path: '/api/detect',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReviewRoute = ApiReviewRouteImport.update({
+  id: '/api/review',
+  path: '/api/review',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/codesense': typeof ApiCodesenseRoute
+  '/api/detect': typeof ApiDetectRoute
+  '/api/review': typeof ApiReviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/codesense': typeof ApiCodesenseRoute
+  '/api/detect': typeof ApiDetectRoute
+  '/api/review': typeof ApiReviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/codesense': typeof ApiCodesenseRoute
+  '/api/detect': typeof ApiDetectRoute
+  '/api/review': typeof ApiReviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/codesense'
+  fullPaths: '/' | '/api/codesense' | '/api/detect' | '/api/review'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/codesense'
-  id: '__root__' | '/' | '/api/codesense'
+  to: '/' | '/api/codesense' | '/api/detect' | '/api/review'
+  id: '__root__' | '/' | '/api/codesense' | '/api/detect' | '/api/review'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiCodesenseRoute: typeof ApiCodesenseRoute
+  ApiDetectRoute: typeof ApiDetectRoute
+  ApiReviewRoute: typeof ApiReviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +85,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCodesenseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/detect': {
+      id: '/api/detect'
+      path: '/api/detect'
+      fullPath: '/api/detect'
+      preLoaderRoute: typeof ApiDetectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/review': {
+      id: '/api/review'
+      path: '/api/review'
+      fullPath: '/api/review'
+      preLoaderRoute: typeof ApiReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiCodesenseRoute: ApiCodesenseRoute,
+  ApiDetectRoute: ApiDetectRoute,
+  ApiReviewRoute: ApiReviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

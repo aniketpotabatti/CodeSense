@@ -125,6 +125,80 @@ func Run(ctx context.Context, workers int, jobs []Job) error {
 }
 `,
   },
+  {
+    id: "debounce",
+    name: "debounce.js",
+    language: "javascript",
+    content: `function debounce(fn, wait) {
+  let timer = null;
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), wait);
+  };
+}
+
+const onResize = debounce(() => {
+  console.log("resized", window.innerWidth);
+}, 200);
+
+window.addEventListener("resize", onResize);
+`,
+  },
+  {
+    id: "merge-sorted",
+    name: "merge_sorted.rs",
+    language: "rust",
+    content: `fn merge_sorted(a: &[i32], b: &[i32]) -> Vec<i32> {
+    let mut out = Vec::new();
+    let (mut i, mut j) = (0, 0);
+
+    while i < a.len() && j < b.len() {
+        if a[i] <= b[j] {
+            out.push(a[i]);
+            i += 1;
+        } else {
+            out.push(b[j]);
+            j += 1;
+        }
+    }
+
+    out.extend_from_slice(&a[i..]);
+    out.extend_from_slice(&b[j..]);
+    out
+}
+
+fn main() {
+    let a = [1, 3, 5, 7];
+    let b = [2, 4, 6, 8];
+    println!("{:?}", merge_sorted(&a, &b));
+}
+`,
+  },
+  {
+    id: "unique",
+    name: "Unique.java",
+    language: "java",
+    content: `import java.util.*;
+
+public class Unique {
+    public static <T> List<T> unique(List<T> items) {
+        List<T> out = new ArrayList<>();
+        Set<T> seen = new HashSet<>();
+        for (T item : items) {
+            if (seen.add(item)) {
+                out.add(item);
+            }
+        }
+        return out;
+    }
+
+    public static void main(String[] args) {
+        List<Integer> nums = Arrays.asList(1, 2, 2, 3, 1, 4);
+        System.out.println(unique(nums));
+    }
+}
+`,
+  },
 ];
 
 export function cloneSamples(): FileTab[] {

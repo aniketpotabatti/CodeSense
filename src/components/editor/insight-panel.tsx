@@ -1,18 +1,12 @@
-import {
-  AlertTriangle,
-  Check,
-  Copy,
-  Lightbulb,
-  ListChecks,
-  ScanText,
-} from "lucide-react";
+import { Check, Copy, Lightbulb, ListChecks, ScanText, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { ParsedReview, StreamStatus } from "@/lib/codesense/types";
+import type { ParsedReview, ReviewRisk, ReviewSeverity, StreamStatus } from "@/lib/codesense/types";
 import { useCodesense } from "@/lib/codesense/store";
+import { Markdown } from "./markdown";
 import { cn } from "@/lib/utils";
 
 export function InsightPanel() {
@@ -80,6 +74,7 @@ export function InsightPanel() {
               <pre className="overflow-x-auto rounded-md bg-background p-3 font-mono text-xs leading-relaxed text-foreground shadow-border">
                 {suggestPreview}
               </pre>
+              <ApplySuggestion text={suggestPreview} />
             </div>
           )}
         </div>
@@ -142,6 +137,22 @@ function CopyButton({ text, disabled }: { text: string; disabled: boolean }) {
   );
 }
 
+function ApplySuggestion({ text }: { text: string }) {
+  const applySuggest = useCodesense((s) => s.applySuggest);
+  const hasEditor = useCodesense((s) => s.editor != null);
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={!hasEditor}
+      onClick={() => applySuggest(text)}
+    >
+      <Check className="size-3.5 mr-2" /> Apply suggestion
+    </Button>
+  );
+}
+
 function ExplainBody({
   insight,
 }: {
@@ -161,15 +172,54 @@ function ExplainBody({
         <p className="shimmer bg-clip-text text-sm text-muted">Reading the snippet</p>
       )}
       {insight.text && (
-        <p className="text-sm leading-relaxed text-foreground">
-          {insight.text}
+        <div className="text-sm leading-relaxed text-foreground">
+          <Markdown text={insight.text} />
           {insight.status === "streaming" && <span className="streaming-caret" />}
-        </p>
+        </div>
       )}
       {insight.error && (
         <p className="mt-3 text-sm text-destructive">{insight.error}</p>
       )}
     </div>
+  );
+}
+
+function severityVariant(severity: ReviewSeverity) {
+  switch (severity) {
+    case "low":
+      return "secondary";
+    case "medium":
+      return "warn";
+    case "high":
+      return "danger";
+  }
+}
+
+function ThumbButton({
+  kind,
+  active,
+  onClick,
+}: {
+  kind: "up" | "down";
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={kind === "up" ? "Mark helpful" : "Mark not helpful"}
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-md border border-surface-2 px-2 py-1 text-xs transition-colors",
+        active
+          ? kind === "up"
+            ? "border-success text-success bg-success/10"
+            : "border-destructive text-destructive bg-destructive/10"
+          : "text-muted hover:border-surface hover:text-foreground",
+      )}
+    >
+      {kind === "up" ? <ThumbsUp className="size-3.5" /> : <ThumbsDown className="size-3.5" />}
+    </button>
   );
 }
 
@@ -184,13 +234,15 @@ function ReviewBody({
   };
 }) {
   const parsed = insight.review;
+  const feedback = useCodesense((s) => s.feedback);
+  const rateFeedback = useCodesense((s) => s.rateFeedback);
   const fallback = useMemo(() => insight.text, [insight.text]);
 
   if (insight.status === "idle" && !insight.text) {
     return (
       <EmptyState
         title="No review yet"
-        body="Save the file or press Review for a structured pass: strengths, issues, one refactor."
+        body="Save the file or press Review for a structured pass: summary, risks, optional refactor."
       />
     );
   }
@@ -199,13 +251,20 @@ function ReviewBody({
     return <p className="shimmer bg-clip-text text-sm text-muted">Reviewing the file</p>;
   }
 
+  const rate = (key: string, kind: "up" | "down") => {
+    rateFeedback(key, kind);
+    toast(kind === "up" ? "Marked helpful" : "Noted — thanks", {
+      description: "This helps improve CodeSense's review prompts.",
+    });
+  };
+
   if (!parsed) {
     return (
       <div>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-          {fallback}
+        <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+          <Markdown text={fallback} />
           {insight.status === "streaming" && <span className="streaming-caret" />}
-        </p>
+        </div>
         {insight.error && (
           <p className="mt-3 text-sm text-destructive">{insight.error}</p>
         )}
@@ -215,59 +274,97 @@ function ReviewBody({
 
   return (
     <div className="flex flex-col gap-5">
-      <ReviewSection
-        icon={<Check className="size-3.5" />}
-        tone="success"
-        title="What's good"
-        items={parsed.good}
-      />
-      <ReviewSection
-        icon={<AlertTriangle className="size-3.5" />}
-        tone="warn"
-        title="What to improve"
-        items={parsed.improve}
-      />
-      <ReviewSection
-        icon={<Lightbulb className="size-3.5" />}
-        tone="accent"
-        title="Optional refactor"
-        items={parsed.refactor}
-      />
-      {insight.status === "streaming" && <span className="streaming-caret" />}
-      {insight.error && (
-        <p className="text-sm text-destructive">{insight.error}</p>
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-foreground uppercase tracking-wide">
+          Summary
+        </p>
+        <Markdown text={parsed.summary} />
+      </section>
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-foreground uppercase tracking-wide">
+          Walkthrough
+        </p>
+        <Markdown text={parsed.walkthrough} />
+      </section>
+      <section className="flex flex-col gap-3">
+        <p className="text-sm font-medium text-foreground uppercase tracking-wide">
+          Risks
+        </p>
+        <ul className="flex flex-col gap-2 pl-1">
+          {parsed.risks.map((risk) => (
+            <RiskItem key={risk.msg} risk={risk} rate={rate} rated={feedback[risk.msg]} />
+          ))}
+          {parsed.risks.length === 0 && (
+            <p className="text-sm text-muted">No risks detected.</p>
+          )}
+        </ul>
+      </section>
+      {parsed.refactor && (
+        <RefactorBlock
+          refactor={parsed.refactor}
+          rate={rate}
+          rated={feedback[parsed.refactor.diff]}
+        />
       )}
+      {insight.error && <p className="mt-3 text-sm text-destructive">{insight.error}</p>}
     </div>
   );
 }
 
-function ReviewSection({
-  icon,
-  tone,
-  title,
-  items,
+function RiskItem({
+  risk,
+  rate,
+  rated,
 }: {
-  icon: ReactNode;
-  tone: "success" | "warn" | "accent";
-  title: string;
-  items: string[];
+  risk: ReviewRisk;
+  rate: (key: string, kind: "up" | "down") => void;
+  rated: "up" | "down" | undefined;
 }) {
-  if (items.length === 0) return null;
+  const label = risk.severity.charAt(0).toUpperCase() + risk.severity.slice(1);
   return (
-    <section className="flex flex-col gap-2">
+    <li className="flex flex-col gap-2 pt-2 border-l-2 pl-3 border-surface">
       <div className="flex items-center gap-2">
-        <Badge variant={tone === "accent" ? "accent" : tone}>
-          <span className="mr-1">{icon}</span>
-          {title}
+        <Badge variant={severityVariant(risk.severity)}>
+          <span className="mr-1">{label}</span>
+          {risk.line != null && <span className="mr-1">line {risk.line}</span>}
         </Badge>
       </div>
-      <ul className="flex flex-col gap-2 pl-1">
-        {items.map((item) => (
-          <li key={item} className="text-sm leading-relaxed text-foreground">
-            {item}
-          </li>
-        ))}
-      </ul>
+      <p className="text-sm leading-relaxed text-foreground">{risk.msg}</p>
+      <div className="flex gap-1">
+        <ThumbButton kind="up" active={rated === "up"} onClick={() => rate(risk.msg, "up")} />
+        <ThumbButton kind="down" active={rated === "down"} onClick={() => rate(risk.msg, "down")} />
+      </div>
+    </li>
+  );
+}
+
+function RefactorBlock({
+  refactor,
+  rate,
+  rated,
+}: {
+  refactor: NonNullable<ParsedReview["refactor"]>;
+  rate: (key: string, kind: "up" | "down") => void;
+  rated: "up" | "down" | undefined;
+}) {
+  return (
+    <section className="flex flex-col gap-2 border border-border rounded-md bg-surface-2/50 p-3">
+      <div className="flex items-center gap-2">
+        <Lightbulb className="size-3.5" />
+        <span className="text-xs font-semibold uppercase tracking-wide">
+          Optional refactor
+        </span>
+      </div>
+      {refactor.description && (
+        <p className="text-sm leading-relaxed text-foreground">{refactor.description}</p>
+      )}
+      <pre className="overflow-x-auto rounded-md bg-background p-3 font-mono text-xs leading-relaxed text-foreground shadow-border">
+        {refactor.diff}
+      </pre>
+      <div className="flex gap-1">
+        <ThumbButton kind="up" active={rated === "up"} onClick={() => rate(refactor.diff, "up")} />
+        <ThumbButton kind="down" active={rated === "down"} onClick={() => rate(refactor.diff, "down")} />
+      </div>
     </section>
   );
 }

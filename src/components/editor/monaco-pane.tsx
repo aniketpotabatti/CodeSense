@@ -5,7 +5,7 @@ import type {
   editor as MonacoEditorNs,
   languages,
 } from "monaco-editor";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { getActiveFile, useCodesense } from "@/lib/codesense/store";
 import { EditorSkeleton } from "./editor-skeleton";
 
@@ -100,6 +100,7 @@ export function MonacoPane() {
   const setFileContent = useCodesense((s) => s.setFileContent);
   const setCursor = useCodesense((s) => s.setCursor);
   const setSelection = useCodesense((s) => s.setSelection);
+  const setEditor = useCodesense((s) => s.setEditor);
   const markTyped = useCodesense((s) => s.markTyped);
 
   const editorRef = useRef<MonacoEditor | null>(null);
@@ -123,12 +124,14 @@ export function MonacoPane() {
     }
   }, [file.content, file.language, file.id]);
 
-  const handleMount: OnMount = (editor, monaco) => {
+  const handleMount: OnMount = useCallback((editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
     defineTheme(monaco);
     monaco.editor.setTheme("codesense-dark");
     registerSuggestProvider(monaco);
+    setEditor(editor);
+    editor.onDidDispose(() => setEditor(null));
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       void useCodesense.getState().runReview("save");
@@ -160,13 +163,17 @@ export function MonacoPane() {
       const model = editor.getModel();
       if (!model) return;
       markTyped();
-      const id = useCodesense.getState().activeFileId;
-      setFileContent(id, model.getValue());
+      const state = useCodesense.getState();
+      const id = state.activeFileId;
+      const current = state.files.find((f) => f.id === id)?.content ?? "";
+      if (current !== model.getValue()) {
+        setFileContent(id, model.getValue());
+      }
     });
 
     const pos = editor.getPosition();
     if (pos) setCursor(pos.lineNumber, pos.column);
-  };
+  }, [setCursor, setSelection, markTyped, setEditor]);
 
   return (
     <Editor

@@ -25,10 +25,24 @@ export type CodesenseRequest = {
 
 export type StreamStatus = "idle" | "streaming" | "done" | "error";
 
+export type ReviewSeverity = "low" | "medium" | "high";
+
+export type ReviewRisk = {
+  line: number | null;
+  severity: ReviewSeverity;
+  msg: string;
+};
+
+export type ReviewRefactor = {
+  diff: string;
+  description?: string;
+} | null;
+
 export type ParsedReview = {
-  good: string[];
-  improve: string[];
-  refactor: string[];
+  summary: string;
+  walkthrough: string;
+  risks: ReviewRisk[];
+  refactor: ReviewRefactor;
 };
 
 export type FileTab = {
@@ -43,6 +57,8 @@ export type Settings = {
   reviewOnSave: boolean;
   suggestOnIdle: boolean;
   debounceMs: number;
+  theme: "dark" | "light";
+  apiKey: string;
 };
 
 export const LANGUAGES = [
@@ -66,6 +82,8 @@ export const DEFAULT_SETTINGS: Settings = {
   reviewOnSave: true,
   suggestOnIdle: true,
   debounceMs: 600,
+  theme: "dark",
+  apiKey: "",
 };
 
 export const MAX_INPUT_TOKENS = 800;
