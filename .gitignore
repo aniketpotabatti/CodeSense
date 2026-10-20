@@ -24,6 +24,9 @@ coverage/
 .next/
 .nuxt/
 .vercel/
+# build artifacts & screenshots (committed by mistake in early commits — do not track)
+artifacts/
+screenshots/
 .netlify/
 
 # ─── Logs & debug ─────────────────────────────────────────────
