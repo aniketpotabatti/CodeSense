@@ -66,3 +66,36 @@ temp/
 # Uncomment if you want to ship only server.cjs:
 # server.mjs
 # server-standalone.mjs
+
+.vercel/output/nitro.json
+.vercel/output/functions/__server.func/_tanstack-start-manifest_v-EK_35D6x.mjs
+.vercel/output/functions/__server.func/index.mjs
+.vercel/output/functions/__server.func/_libs/lucide-react.mjs
+.vercel/output/functions/__server.func/_libs/radix-ui__react-direction.mjs
+.vercel/output/functions/__server.func/_libs/radix-ui__react-scroll-area.mjs
+.vercel/output/functions/__server.func/_libs/radix-ui__react-switch.mjs
+.vercel/output/functions/__server.func/_libs/react-resizable-panels.mjs
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-collection+\[...].mjs
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-dialog+\[...].mjs
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-dropdown-menu+\[...].mjs
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-slider+\[...].mjs
+.vercel/output/functions/__server.func/_libs/@radix-ui/react-tooltip+\[...].mjs
+.vercel/output/functions/__server.func/_libs/@tanstack/react-router+\[...].mjs
+.vercel/output/functions/__server.func/_ssr/monaco-pane-BYiuwNaR.mjs
+.vercel/output/functions/__server.func/_ssr/router-Cn4xx0-Y.mjs
+.vercel/output/functions/__server.func/_ssr/routes-DEYGv3fe.mjs
+.vercel/output/functions/__server.func/_ssr/ssr.mjs
+.vercel/output/static/assets/index-CqsEwx0B.js
+.vercel/output/static/assets/monaco-pane-CRdmEEj2.js
+.vercel/output/static/assets/routes-Cri2KnFK.js
+.vercel/output/static/assets/styles-CU_IQgum.css
+screenshots/app-dev-mobile.png
+screenshots/app-dev.png
+screenshots/app-diag.png
+screenshots/app-diag2.png
+screenshots/app-tokens-desktop.png
+screenshots/app-tokens-mobile.png
+screenshots/item8-desktop.png
+screenshots/item8-mobile.png
+screenshots/smoke-dev.png
+screenshots/verdict.json
