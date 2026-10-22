@@ -5,6 +5,7 @@ import {
   MAX_OUTPUT_TOKENS,
   type CodesenseRequest,
   type GatewayError,
+  type Mode,
 } from "./types";
 
 const MODEL = "grok-4.5";
@@ -32,7 +33,9 @@ export function detectProvider(key: string, requested?: string): string {
 export function readKeyOverride(
   req: Request,
 ): { key: string; provider: string } | null {
-  const key = String(req.headers.get("x-codesense-key") || "").trim();
+  const key = String(
+    req.headers.get("x-codesense-key") || req.headers.get("x-api-key") || ""
+  ).trim();
   if (!key || key.length > 300) return null;
   const provider = detectProvider(key, req.headers.get("x-codesense-provider") ?? undefined);
   return { key, provider };
@@ -111,7 +114,10 @@ export async function handleCodesense(
   request: Request,
   remaining: number,
 ): Promise<Response> {
-  const apiKey = process.env.XAI_API_KEY;
+  // Resolve provider key: BYOK header takes precedence, fall back to server env.
+  const keyOverride = readKeyOverride(request);
+  const apiKey = keyOverride?.key ?? process.env.XAI_API_KEY;
+  const provider = keyOverride?.provider ?? "xai";
   if (!apiKey) {
     return jsonError(
       {
@@ -138,7 +144,7 @@ export async function handleCodesense(
     body.mode !== "suggest"
   ) {
     return jsonError(
-      { error: "BAD_REQUEST", message: "Unknown mode." },
+      { error: "INVALID_MODE", message: "Unknown mode." },
       400,
     );
   }
@@ -150,7 +156,7 @@ export async function handleCodesense(
 
   if (!rawSnippet.trim()) {
     return jsonError(
-      { error: "BAD_REQUEST", message: "Snippet is empty." },
+      { error: "EMPTY_SNIPPET", message: "Snippet is empty." },
       400,
     );
   }
@@ -179,34 +185,16 @@ export async function handleCodesense(
     cursorCol,
   });
 
-  const timeout = AbortSignal.timeout(25_000);
+  const timeout = AbortSignal.timeout(30_000);
   const signal = request.signal
     ? AbortSignal.any([request.signal, timeout])
     : timeout;
 
   let upstream: Response;
   try {
-    upstream = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        stream: true,
-        temperature: body.mode === "suggest" ? 0.2 : 0.35,
-        max_tokens: MAX_OUTPUT_TOKENS[body.mode],
-        messages: [
-          { role: "system", content: messages.system },
-          { role: "user", content: messages.user },
-        ],
-      }),
-      signal,
-    });
+    upstream = await callUpstream(provider, apiKey, messages, body.mode, signal);
   } catch (err) {
-    const timedOut =
-      signal.aborted && timeout.aborted && !request.signal?.aborted;
+    const timedOut = signal.aborted && timeout.aborted && !request.signal?.aborted;
     return jsonError(
       {
         error: timedOut ? "PROVIDER_TIMEOUT" : "PROVIDER_ERROR",
@@ -254,6 +242,112 @@ export async function handleCodesense(
 
   const stream = mapOpenAiStream(upstream.body, signal);
   return new Response(stream, { headers: sseHeaders(remaining) });
+}
+
+async function callUpstream(
+  provider: string,
+  apiKey: string,
+  messages: { system: string; user: string },
+  mode: Mode,
+  signal: AbortSignal,
+): Promise<Response> {
+  const temperature = mode === "suggest" ? 0.2 : 0.35;
+  const maxTokens = MAX_OUTPUT_TOKENS[mode as keyof typeof MAX_OUTPUT_TOKENS];
+
+  switch (provider) {
+    case "xai": {
+      const res = await fetch("https://api.x.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          stream: true,
+          temperature,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: messages.system },
+            { role: "user", content: messages.user },
+          ],
+        }),
+        signal,
+      });
+      return res;
+    }
+    case "openai": {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          stream: true,
+          temperature,
+          max_tokens: maxTokens,
+          messages: [
+            { role: "system", content: messages.system },
+            { role: "user", content: messages.user },
+          ],
+        }),
+        signal,
+      });
+      return res;
+    }
+    case "anthropic": {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-3-5-haiku-20241022",
+          stream: true,
+          temperature,
+          max_tokens: maxTokens,
+          system: messages.system,
+          messages: [{ role: "user", content: messages.user }],
+        }),
+        signal,
+      });
+      return res;
+    }
+    case "gemini": {
+      const model = "gemini-1.5-flash";
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?key=${apiKey}`;
+      const payload = {
+        contents: [
+          {
+            parts: [
+              {
+                text: `${messages.system}\n\n${messages.user}`,
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          temperature,
+          maxOutputTokens: maxTokens,
+        },
+      };
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal,
+      });
+      return res;
+    }
+    default:
+      throw new Error(`Unsupported provider: ${provider}.`);
+  }
 }
 
 function mapOpenAiStream(
@@ -332,3 +426,4 @@ function mapOpenAiStream(
     },
   });
 }
+

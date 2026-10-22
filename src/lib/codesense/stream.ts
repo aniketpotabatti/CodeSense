@@ -18,10 +18,84 @@ function isGatewayError(value: unknown): value is GatewayError {
   return typeof rec.error === "string" && typeof rec.message === "string";
 }
 
+const RETRYABLE_CODES: GatewayError["error"][] = [
+  "RATE_LIMITED",
+  "PROVIDER_TIMEOUT",
+  "PROVIDER_ERROR",
+];
+
+const MAX_RETRIES = 3;
+const BASE_BACKOFF_MS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function backoffMs(attempt: number, retryAfter?: number): number {
+  if (retryAfter) return retryAfter * 1000;
+  return BASE_BACKOFF_MS * Math.pow(2, attempt);
+}
+
 export async function streamCodesense(
   body: CodesenseRequest,
   signal: AbortSignal,
   onDelta: (delta: string) => void,
+): Promise<{ remaining: number | null }> {
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (signal.aborted) throw new DOMException("Aborted", "AbortError");
+
+    try {
+      return await attemptStream(body, signal, onDelta, attempt);
+    } catch (err) {
+      lastError = err;
+
+      if (err instanceof CodesenseApiError) {
+        if (
+          err.code === "RATE_LIMITED" &&
+          attempt < MAX_RETRIES
+        ) {
+          const delay = backoffMs(attempt, err.retryAfter);
+          await sleep(delay);
+          continue;
+        }
+        if (
+          err.code === "PROVIDER_TIMEOUT" &&
+          attempt < MAX_RETRIES
+        ) {
+          const delay = backoffMs(attempt);
+          await sleep(delay);
+          continue;
+        }
+        if (
+          err.code === "PROVIDER_ERROR" &&
+          attempt < MAX_RETRIES
+        ) {
+          const delay = backoffMs(attempt);
+          await sleep(delay);
+          continue;
+        }
+        throw err;
+      }
+
+      if (attempt < MAX_RETRIES) {
+        const delay = backoffMs(attempt);
+        await sleep(delay);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError;
+}
+
+async function attemptStream(
+  body: CodesenseRequest,
+  signal: AbortSignal,
+  onDelta: (delta: string) => void,
+  attempt: number,
 ): Promise<{ remaining: number | null }> {
   const res = await fetch("/api/codesense", {
     method: "POST",

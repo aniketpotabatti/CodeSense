@@ -69,6 +69,11 @@ describe("codesense key override", () => {
   it("rejects key longer than 300 chars", () => {
     assert.equal(readKeyOverride(makeReq({ "x-codesense-key": "a".repeat(301) })), null);
   });
+  it("reads BYOK key from x-api-key header", () => {
+    const ov = readKeyOverride(makeReq({ "x-api-key": "sk-test-12345" }));
+    assert.equal(ov?.key, "sk-test-12345");
+    assert.equal(ov?.provider, "openai");
+  });
 });
 
 describe("codesense health labels", () => {

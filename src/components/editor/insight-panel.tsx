@@ -1,12 +1,13 @@
 import { Check, Copy, Lightbulb, ListChecks, ScanText, ThumbsDown, ThumbsUp } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ParsedReview, ReviewRisk, ReviewSeverity, StreamStatus } from "@/lib/codesense/types";
-import { useCodesense } from "@/lib/codesense/store";
+import { getActiveFile, useCodesense } from "@/lib/codesense/store";
 import { Markdown } from "./markdown";
+import { RefactorDiffDialog } from "./refactor-diff-dialog";
 import { cn } from "@/lib/utils";
 
 export function InsightPanel() {
@@ -20,6 +21,11 @@ export function InsightPanel() {
   const dismissCoach = useCodesense((s) => s.dismissCoach);
 
   const active = panelTab === "explain" ? explain : review;
+
+  const loadHistory = useCodesense((s) => s.loadHistory);
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
 
   return (
     <aside className="flex h-full min-h-0 flex-col bg-surface">
@@ -347,25 +353,49 @@ function RefactorBlock({
   rate: (key: string, kind: "up" | "down") => void;
   rated: "up" | "down" | undefined;
 }) {
+  const [diffOpen, setDiffOpen] = useState(false);
+  const file = useCodesense(getActiveFile);
+  const setFileContent = useCodesense((s) => s.setFileContent);
+
   return (
-    <section className="flex flex-col gap-2 border border-border rounded-md bg-surface-2/50 p-3">
-      <div className="flex items-center gap-2">
-        <Lightbulb className="size-3.5" />
-        <span className="text-xs font-semibold uppercase tracking-wide">
-          Optional refactor
-        </span>
-      </div>
-      {refactor.description && (
-        <p className="text-sm leading-relaxed text-foreground">{refactor.description}</p>
-      )}
-      <pre className="overflow-x-auto rounded-md bg-background p-3 font-mono text-xs leading-relaxed text-foreground shadow-border">
-        {refactor.diff}
-      </pre>
-      <div className="flex gap-1">
-        <ThumbButton kind="up" active={rated === "up"} onClick={() => rate(refactor.diff, "up")} />
-        <ThumbButton kind="down" active={rated === "down"} onClick={() => rate(refactor.diff, "down")} />
-      </div>
-    </section>
+    <>
+      <section className="flex flex-col gap-2 border border-border rounded-md bg-surface-2/50 p-3">
+        <div className="flex items-center gap-2">
+          <Lightbulb className="size-3.5" />
+          <span className="text-xs font-semibold uppercase tracking-wide">
+            Optional refactor
+          </span>
+        </div>
+        {refactor.description && (
+          <p className="text-sm leading-relaxed text-foreground">{refactor.description}</p>
+        )}
+        <pre className="overflow-x-auto rounded-md bg-background p-3 font-mono text-xs leading-relaxed text-foreground shadow-border">
+          {refactor.diff}
+        </pre>
+        <div className="flex gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDiffOpen(true)}
+          >
+            Preview & Apply
+          </Button>
+          <ThumbButton kind="up" active={rated === "up"} onClick={() => rate(refactor.diff, "up")} />
+          <ThumbButton kind="down" active={rated === "down"} onClick={() => rate(refactor.diff, "down")} />
+        </div>
+      </section>
+      <RefactorDiffDialog
+        open={diffOpen}
+        onOpenChange={setDiffOpen}
+        original={file.content}
+        modified={refactor.diff}
+        language={file.language}
+        onApply={(content) => {
+          setFileContent(file.id, content);
+          toast.success("Refactor applied");
+        }}
+      />
+    </>
   );
 }
 

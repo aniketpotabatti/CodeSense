@@ -2,6 +2,8 @@ export const MODES = ["explain", "review", "suggest"] as const;
 export type Mode = (typeof MODES)[number];
 
 export type GatewayErrorCode =
+  | "INVALID_MODE"
+  | "EMPTY_SNIPPET"
   | "TOKEN_LIMIT_EXCEEDED"
   | "RATE_LIMITED"
   | "PROVIDER_TIMEOUT"

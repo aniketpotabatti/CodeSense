@@ -25,6 +25,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.2.0] - 2026-10-22
+
+### Added
+- Command palette (`Cmd+K` / `Ctrl+K`): Explain code, Review file, Export file as Markdown, theme toggle, and language switching (`src/components/editor/command-palette.tsx`)
+- `/api/detect` and `/api/review` API routes with API key extraction middleware and per-client rate limiting (HTTP 429 with `Retry-After`)
+- API key middleware (`@/lib/codesense/apiKeyMiddleware`) and rate-limit module (`@/lib/codesense/rate-limit`)
+- Better Auth migration `migrations/auth/0001_auth.sql` ("Sign in with Grok" user + session tables)
+- ESLint flat config (`eslint.config.mjs`) and Prettier config (`.prettierrc`)
+
+### Changed
+- `README.md` restructured
+- `src/routeTree.gen.ts` regenerated for the new `/api/detect` and `/api/review` routes
+
+### Deprecated
+- None
+
+### Removed
+- None
+
+### Fixed
+- None
+
+### Security
+- None
+
 ## [0.1.2] - 2026-10-19
 
 ### Added

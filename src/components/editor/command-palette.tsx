@@ -11,23 +11,9 @@ import {
 } from "cmdk";
 import { Check, Download, ListChecks, Palette, ScanText, Search } from "lucide-react";
 import { toast } from "sonner";
-import { getActiveFile, useCodesense } from "@/lib/codesense/store";
-import { LANGUAGES, type LanguageId } from "@/lib/codesense/types";
+import { getActiveFile, useCodesense, type Insight } from "@/lib/codesense/store";
+import { FileTab, LANGUAGES, type LanguageId } from "@/lib/codesense/types";
 import { cn } from "@/lib/utils";
-
-const LANGUAGE_EXT: Record<string, string> = {
-  typescript: "ts",
-  javascript: "js",
-  python: "py",
-  go: "go",
-  rust: "rs",
-  java: "java",
-  json: "json",
-  html: "html",
-  css: "css",
-  sql: "sql",
-  markdown: "md",
-};
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -38,6 +24,7 @@ export function CommandPalette() {
   const runReview = useCodesense((s) => s.runReview);
   const explainStatus = useCodesense((s) => s.explain.status);
   const reviewStatus = useCodesense((s) => s.review.status);
+  const review = useCodesense((s) => s.review);
   const theme = useCodesense((s) => s.settings.theme);
 
   // Global Cmd+K / Ctrl+K shortcut. Don't steal it while the user is typing in
@@ -86,19 +73,18 @@ export function CommandPalette() {
 
   const handleExport = useCallback(() => {
     setOpen(false);
-    const ext = LANGUAGE_EXT[file.language] ?? "txt";
-    const blob = new Blob(
-      [`\`\`\`${file.language}\n${file.content}\n\`\`\``],
-      { type: "text/markdown" },
-    );
+    const baseName = file.name.replace(/\.[^/.]+$/, "") || file.name;
+    const blob = new Blob([buildExportMarkdown(file, review)], {
+      type: "text/markdown",
+    });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${file.name}.${ext}`;
+    anchor.download = `${baseName}.md`;
     anchor.click();
     URL.revokeObjectURL(url);
-    toast.success(`Exported ${file.name}.${ext}`);
-  }, [file]);
+    toast.success(`Exported ${baseName}.md`);
+  }, [file, review]);
 
   const handleLanguage = useCallback(
     (id: LanguageId) => {
@@ -179,4 +165,69 @@ export function CommandPalette() {
       </CommandDialog>
     </>
   );
+}
+
+
+function buildExportMarkdown(file: FileTab, review: Insight): string {
+  const lines: string[] = [];
+  const parsed = review.review;
+  const date = new Date().toISOString().slice(0, 10);
+
+  lines.push(`# Code Review: ${file.name}`);
+  lines.push("");
+  lines.push(
+    `Reviewed on ${date} · ${file.language} · ${file.content.length} characters`,
+  );
+  lines.push("");
+
+  if (parsed) {
+    lines.push("## Summary");
+    lines.push("");
+    lines.push(parsed.summary);
+    lines.push("");
+
+    if (parsed.walkthrough.trim()) {
+      lines.push("## Walkthrough");
+      lines.push("");
+      lines.push(parsed.walkthrough);
+      lines.push("");
+    }
+
+    if (parsed.risks.length) {
+      lines.push("## Risks");
+      lines.push("");
+      for (const risk of parsed.risks) {
+        const at = risk.line != null ? `line ${risk.line}: ` : "";
+        lines.push(`- [${risk.severity}] ${at}${risk.msg}`);
+      }
+      lines.push("");
+    }
+
+    if (parsed.refactor) {
+      lines.push("## Suggested refactor");
+      lines.push("");
+      if (parsed.refactor.description) {
+        lines.push(parsed.refactor.description);
+        lines.push("");
+      }
+      lines.push("```diff");
+      lines.push(parsed.refactor.diff);
+      lines.push("```");
+      lines.push("");
+    }
+  } else if (review.text.trim()) {
+    lines.push("## Review");
+    lines.push("");
+    lines.push(review.text);
+    lines.push("");
+  }
+
+  lines.push("## Code");
+  lines.push("");
+  lines.push(`\`\`\`${file.language}`);
+  lines.push(file.content);
+  lines.push("```");
+  lines.push("");
+
+  return lines.join("\n");
 }

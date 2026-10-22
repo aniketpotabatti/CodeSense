@@ -1,5 +1,13 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import {
+  clearHistoryEntries,
+  deleteHistoryEntry,
+  getHistoryEntries,
+  isHistoryAvailable,
+  saveHistoryEntry,
+  type HistoryEntry,
+} from "./history";
 import { parseReview } from "./parse-review";
 import { cloneSamples } from "./samples";
 import { extractSnippet, stripCompletionFences } from "./snippet";
@@ -55,6 +63,12 @@ type Store = {
   runReview: (source?: "save" | "manual") => Promise<void>;
   runSuggest: (signal: AbortSignal) => Promise<string>;
   applySuggest: (text: string) => void;
+  history: HistoryEntry[];
+  historyLoaded: boolean;
+  loadHistory: () => Promise<void>;
+  addHistoryEntry: (entry: Omit<HistoryEntry, "id" | "timestamp">) => void;
+  removeHistoryEntry: (id: string) => void;
+  clearHistory: () => void;
 };
 
 const emptyInsight = (): Insight => ({
@@ -71,10 +85,17 @@ function activeFile(state: Pick<Store, "files" | "activeFileId">): FileTab {
 }
 
 function errorMessage(err: unknown): string {
-  if (err instanceof CodesenseApiError) return err.message;
+  if (err instanceof CodesenseApiError) {
+    const codeLabel = err.code === err.message ? "" : `[${err.code}] `;
+    return codeLabel + err.message;
+  }
   if (err instanceof DOMException && err.name === "AbortError") return "";
   if (err instanceof Error) return err.message;
   return "Something went wrong.";
+}
+
+function isRetryableClientError(code: string | undefined): boolean {
+  return code === "INVALID_MODE" || code === "EMPTY_SNIPPET" || code === "TOKEN_LIMIT_EXCEEDED";
 }
 
 export const useCodesense = create<Store>()(
@@ -96,6 +117,8 @@ export const useCodesense = create<Store>()(
       explain: emptyInsight(),
       review: emptyInsight(),
       suggestPreview: "",
+      history: [],
+      historyLoaded: false,
 
       setActiveFile: (id) => set({ activeFileId: id, selection: "" }),
       setFileContent: (id, content) =>
@@ -194,6 +217,17 @@ export const useCodesense = create<Store>()(
             remaining,
             explain: { text, status: "done", error: null, review: null },
           });
+          if (source === "manual") {
+            void get().addHistoryEntry({
+              mode: "explain",
+              language: file.language,
+              fileId: file.id,
+              fileName: file.name,
+              snippet,
+              text,
+              review: null,
+            });
+          }
         } catch (err) {
           if (controller.signal.aborted) {
             set({
@@ -279,6 +313,17 @@ export const useCodesense = create<Store>()(
               review: parseReview(text),
             },
           });
+          if (source === "manual") {
+            void get().addHistoryEntry({
+              mode: "review",
+              language: file.language,
+              fileId: file.id,
+              fileName: file.name,
+              snippet: file.content,
+              text,
+              review: parseReview(text),
+            });
+          }
         } catch (err) {
           if (controller.signal.aborted) {
             set({
@@ -359,6 +404,49 @@ export const useCodesense = create<Store>()(
             forceMoveMarkers: true,
           },
         ]);
+      },
+
+      loadHistory: async () => {
+        if (!isHistoryAvailable()) {
+          set({ historyLoaded: true });
+          return;
+        }
+        try {
+          const entries = await getHistoryEntries();
+          set({ history: entries, historyLoaded: true });
+        } catch {
+          set({ historyLoaded: true });
+        }
+      },
+
+      addHistoryEntry: (entry) => {
+        const full: HistoryEntry = {
+          ...entry,
+          id: crypto.randomUUID(),
+          timestamp: Date.now(),
+        };
+        if (isHistoryAvailable()) {
+          void saveHistoryEntry(full).catch(() => undefined);
+        }
+        set((state) => ({
+          history: [full, ...state.history].slice(0, 100),
+        }));
+      },
+
+      removeHistoryEntry: (id: string) => {
+        if (isHistoryAvailable()) {
+          void deleteHistoryEntry(id).catch(() => undefined);
+        }
+        set((state) => ({
+          history: state.history.filter((entry) => entry.id !== id),
+        }));
+      },
+
+      clearHistory: () => {
+        if (isHistoryAvailable()) {
+          void clearHistoryEntries().catch(() => undefined);
+        }
+        set({ history: [] });
       },
     }),
     {
