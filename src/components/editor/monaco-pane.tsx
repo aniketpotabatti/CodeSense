@@ -173,7 +173,7 @@ export function MonacoPane() {
 
     const pos = editor.getPosition();
     if (pos) setCursor(pos.lineNumber, pos.column);
-  }, [setCursor, setSelection, markTyped, setEditor]);
+  }, [setCursor, setSelection, markTyped, setEditor, setFileContent]);
 
   return (
     <Editor

@@ -27,6 +27,14 @@ export type CodesenseRequest = {
 
 export type StreamStatus = "idle" | "streaming" | "done" | "error";
 
+export type StreamingMetrics = {
+  ttftMs: number | null;
+  tps: number | null;
+  outputTokens: number;
+  startTime: number | null;
+  estimatedCostUsd: number | null;
+};
+
 export type ReviewSeverity = "low" | "medium" | "high";
 
 export type ReviewRisk = {

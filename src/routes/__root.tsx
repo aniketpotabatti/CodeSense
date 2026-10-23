@@ -23,6 +23,20 @@ export const Route = createRootRoute({
           "CodeSense explains, reviews, and completes code as you write — a live GenAI editor.",
       },
       { name: "theme-color", content: "#0c0d10" },
+      // Content-Security-Policy. Keeps the grok.com branding injector working
+      // while restricting other sources. Snippets/keys are never logged.
+      {
+        httpEquiv: "Content-Security-Policy",
+        content:
+          "default-src 'self'; " +
+          // 'unsafe-inline' required by TanStack Start inline bootstrap scripts.
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://grok.com https://cdn.jsdelivr.net; " +
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+          "font-src 'self' https://fonts.gstatic.com; " +
+          "connect-src 'self' https://api.x.ai https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com https://grok.com; " +
+          "img-src 'self' data:; " +
+          "worker-src 'self' blob:;",
+      },
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },

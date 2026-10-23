@@ -24,6 +24,10 @@ const RETRYABLE_CODES: GatewayError["error"][] = [
   "PROVIDER_ERROR",
 ];
 
+// Retained for documentation of which gateway error codes are retryable.
+// Referenced conceptually by streamCodesense's inline retry logic.
+void RETRYABLE_CODES;
+
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 1000;
 
@@ -95,7 +99,7 @@ async function attemptStream(
   body: CodesenseRequest,
   signal: AbortSignal,
   onDelta: (delta: string) => void,
-  attempt: number,
+  _attempt: number,
 ): Promise<{ remaining: number | null }> {
   const res = await fetch("/api/codesense", {
     method: "POST",

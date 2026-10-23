@@ -21,6 +21,8 @@
       "vite/client",
       "node"
     ],
+    // `baseUrl` is deprecated in TypeScript 6.x and removed in 7.0.
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {
       "@/*": [

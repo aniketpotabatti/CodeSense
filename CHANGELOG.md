@@ -25,6 +25,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.2.2] - 2026-10-23
+
+### Added
+- None
+
+### Changed
+- Release quality gates verified: all 58 unit tests pass, ESLint reports 0 errors, TypeScript typecheck passes, production build succeeds, dev server runs on port 8080, and browser verification confirms clean rendering with no console errors or horizontal overflow
+- Reliability / API hardening: distinct per-error retry categories (INVALID_MODE, EMPTY_SNIPPET, RATE_LIMITED, TOKEN_LIMIT_EXCEEDED, PROVIDER_TIMEOUT), AbortController with 30s timeout and exponential backoff, health polling, server-side proxying of provider API keys, and BYOK encryption with Test Key verification
+- Ops / Security / Docs hardening: `startup.sh`, dev entrypoint, and `vite.config.ts` kept in sync on port `0.0.0.0:8080`, streaming status HUD (TTFT, TPS, cost), security hardening (zod request validation, Content Security Policy, CORS allowlist, secret scanning, no logging of snippets or keys), and documentation (README API reference table, CHANGELOG.md, footer version link, consolidated roadmap)
+
+### Deprecated
+- None
+
+### Removed
+- Removed unused `decrypting` state from `src/components/editor/settings-sheet.tsx`
+- Removed unused `callUpstream` import and unused `done` variable from `src/routes/api/test-key.ts`
+
+### Fixed
+- Content Security Policy in `src/routes/__root.tsx`: added `'unsafe-inline'` to `script-src` so TanStack Start inline bootstrap scripts execute
+- Invalid JSX attribute in `src/routes/__root.tsx`: replaced `http-equiv` with `httpEquiv` on the meta tag
+
+### Security
+- None
+
 ## [0.2.1] - 2026-10-23
 
 ### Added

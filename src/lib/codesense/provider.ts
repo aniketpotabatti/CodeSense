@@ -114,6 +114,7 @@ export async function handleCodesense(
   request: Request,
   remaining: number,
 ): Promise<Response> {
+  // Security: snippets and API keys are validated but NEVER logged.
   // Resolve provider key: BYOK header takes precedence, fall back to server env.
   const keyOverride = readKeyOverride(request);
   const apiKey = keyOverride?.key ?? process.env.XAI_API_KEY;
@@ -244,7 +245,7 @@ export async function handleCodesense(
   return new Response(stream, { headers: sseHeaders(remaining) });
 }
 
-async function callUpstream(
+export async function callUpstream(
   provider: string,
   apiKey: string,
   messages: { system: string; user: string },

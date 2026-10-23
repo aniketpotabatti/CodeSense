@@ -20,6 +20,7 @@ import {
   type ParsedReview,
   type Settings,
   type StreamStatus,
+  type StreamingMetrics,
 } from "./types";
 
 export type Insight = {
@@ -47,6 +48,7 @@ type Store = {
   explain: Insight;
   review: Insight;
   suggestPreview: string;
+  streaming: StreamingMetrics;
   setActiveFile: (id: string) => void;
   setFileContent: (id: string, content: string) => void;
   setLanguage: (language: string) => void;
@@ -94,8 +96,10 @@ function errorMessage(err: unknown): string {
   return "Something went wrong.";
 }
 
-function isRetryableClientError(code: string | undefined): boolean {
-  return code === "INVALID_MODE" || code === "EMPTY_SNIPPET" || code === "TOKEN_LIMIT_EXCEEDED";
+export function isRetryableClientError(code: string | undefined): boolean {
+  // Only transient gateway errors are worth retrying. INVALID_MODE, EMPTY_SNIPPET,
+  // and TOKEN_LIMIT_EXCEEDED are 4xx client errors — retrying them never succeeds.
+  return code === "RATE_LIMITED" || code === "PROVIDER_TIMEOUT" || code === "PROVIDER_ERROR";
 }
 
 export const useCodesense = create<Store>()(
@@ -117,6 +121,13 @@ export const useCodesense = create<Store>()(
       explain: emptyInsight(),
       review: emptyInsight(),
       suggestPreview: "",
+      streaming: {
+        ttftMs: null,
+        tps: null,
+        outputTokens: 0,
+        startTime: null,
+        estimatedCostUsd: null,
+      },
       history: [],
       historyLoaded: false,
 
@@ -185,9 +196,20 @@ export const useCodesense = create<Store>()(
         const controller = new AbortController();
         controllers.explain = controller;
 
+        const startTime = performance.now();
+        let firstDeltaTime: number | null = null;
+        let outputTokens = 0;
+
         set({
           panelTab: "explain",
           explain: { text: "", status: "streaming", error: null, review: null },
+          streaming: {
+            ttftMs: null,
+            tps: null,
+            outputTokens: 0,
+            startTime,
+            estimatedCostUsd: null,
+          },
         });
 
         try {
@@ -202,6 +224,14 @@ export const useCodesense = create<Store>()(
             },
             controller.signal,
             (delta) => {
+              const now = performance.now();
+              if (firstDeltaTime === null) firstDeltaTime = now;
+              outputTokens += Math.max(1, Math.ceil(delta.length / 4));
+              const elapsed = (now - startTime) / 1000;
+              const tps = elapsed > 0 ? outputTokens / elapsed : null;
+              const ttftMs = firstDeltaTime ? firstDeltaTime - startTime : null;
+              const estimatedCostUsd =
+                outputTokens > 0 ? outputTokens * 0.0000015 : null;
               text += delta;
               set({
                 explain: {
@@ -209,6 +239,15 @@ export const useCodesense = create<Store>()(
                   status: "streaming",
                   error: null,
                   review: null,
+                },
+                streaming: {
+                  ttftMs,
+                  tps: tps ? Math.round(tps * 10) / 10 : null,
+                  outputTokens,
+                  startTime,
+                  estimatedCostUsd: estimatedCostUsd
+                    ? Math.round(estimatedCostUsd * 1000000) / 1000000
+                    : null,
                 },
               });
             },
@@ -276,9 +315,20 @@ export const useCodesense = create<Store>()(
         const controller = new AbortController();
         controllers.review = controller;
 
+        const startTime = performance.now();
+        let firstDeltaTime: number | null = null;
+        let outputTokens = 0;
+
         set({
           panelTab: "review",
           review: { text: "", status: "streaming", error: null, review: null },
+          streaming: {
+            ttftMs: null,
+            tps: null,
+            outputTokens: 0,
+            startTime,
+            estimatedCostUsd: null,
+          },
         });
 
         try {
@@ -293,6 +343,14 @@ export const useCodesense = create<Store>()(
             },
             controller.signal,
             (delta) => {
+              const now = performance.now();
+              if (firstDeltaTime === null) firstDeltaTime = now;
+              outputTokens += Math.max(1, Math.ceil(delta.length / 4));
+              const elapsed = (now - startTime) / 1000;
+              const tps = elapsed > 0 ? outputTokens / elapsed : null;
+              const ttftMs = firstDeltaTime ? firstDeltaTime - startTime : null;
+              const estimatedCostUsd =
+                outputTokens > 0 ? outputTokens * 0.0000015 : null;
               text += delta;
               set({
                 review: {
@@ -300,6 +358,15 @@ export const useCodesense = create<Store>()(
                   status: "streaming",
                   error: null,
                   review: parseReview(text),
+                },
+                streaming: {
+                  ttftMs,
+                  tps: tps ? Math.round(tps * 10) / 10 : null,
+                  outputTokens,
+                  startTime,
+                  estimatedCostUsd: estimatedCostUsd
+                    ? Math.round(estimatedCostUsd * 1000000) / 1000000
+                    : null,
                 },
               });
             },

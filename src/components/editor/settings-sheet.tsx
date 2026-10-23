@@ -1,23 +1,39 @@
 import { RotateCcw, Settings2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useCodesense } from "@/lib/codesense/store";
+import { encryptKey, decryptKey } from "@/lib/codesense/crypto";
 
 export function SettingsSheet() {
   const [open, setOpen] = useState(false);
   const settings = useCodesense((s) => s.settings);
   const patchSettings = useCodesense((s) => s.patchSettings);
   const resetFiles = useCodesense((s) => s.resetFiles);
-  const [apiKey, setApiKey] = useState(settings.apiKey);
+  const [apiKey, setApiKey] = useState("");
 
-  function saveApiKey() {
-    patchSettings({ apiKey: apiKey.trim() });
+  useEffect(() => {
+    // Decrypt the stored key for display. If decryption fails (e.g. after a
+    // page reload where the session key was lost), fall back to empty so the
+    // user re-enters the key — plaintext is never persisted in localStorage.
+    (async () => {
+      const decrypted = await decryptKey(settings.apiKey);
+      setApiKey(decrypted ?? "");
+    })();
+  }, [settings.apiKey]);
+
+  async function saveApiKey() {
+    const trimmed = apiKey.trim();
+    let stored = trimmed;
+    if (trimmed) {
+      stored = await encryptKey(trimmed);
+    }
+    patchSettings({ apiKey: stored });
     setOpen(false);
-    if (apiKey.trim()) {
+    if (trimmed) {
       toast.success("API key saved", {
         description: "Live requests will use the provided key.",
       });

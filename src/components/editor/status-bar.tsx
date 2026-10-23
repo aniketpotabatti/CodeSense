@@ -19,6 +19,7 @@ export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
   const debounceMs = useCodesense((s) => s.settings.debounceMs);
   const explain = useCodesense((s) => s.explain);
   const review = useCodesense((s) => s.review);
+  const streaming = useCodesense((s) => s.streaming);
 
   const snippet = selection.trim()
     ? selection
@@ -125,6 +126,37 @@ export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
               ⚠
             </span>
           ) : null}
+          {streaming.startTime && (
+            <span
+              className="hidden sm:inline flex items-center gap-1"
+              title="Streaming telemetry"
+            >
+              {streaming.ttftMs !== null && (
+                <span
+                  className="tabular-nums text-xs"
+                  title={`Time to first token: ${streaming.ttftMs}ms`}
+                >
+                  TTFT {streaming.ttftMs}ms
+                </span>
+              )}
+              {streaming.tps !== null && (
+                <span
+                  className="tabular-nums text-xs"
+                  title={`Tokens per second: ${streaming.tps}`}
+                >
+                  TPS {streaming.tps}
+                </span>
+              )}
+              {streaming.estimatedCostUsd !== null && (
+                <span
+                  className="tabular-nums text-xs"
+                  title={`Estimated cost: $${streaming.estimatedCostUsd.toFixed(6)}`}
+                >
+                  Cost ${streaming.estimatedCostUsd.toFixed(6)}
+                </span>
+              )}
+            </span>
+          )}
         </span>
       </span>
     </footer>
