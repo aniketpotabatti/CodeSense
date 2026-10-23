@@ -1,4 +1,4 @@
-import type { CodesenseRequest, GatewayError } from "./types";
+import type { CodesenseRequest, GatewayError } from "./types.ts";
 
 export class CodesenseApiError extends Error {
   readonly code: GatewayError["error"];
@@ -12,7 +12,7 @@ export class CodesenseApiError extends Error {
   }
 }
 
-function isGatewayError(value: unknown): value is GatewayError {
+export function isGatewayError(value: unknown): value is GatewayError {
   if (!value || typeof value !== "object") return false;
   const rec = value as Record<string, unknown>;
   return typeof rec.error === "string" && typeof rec.message === "string";

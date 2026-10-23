@@ -1,4 +1,4 @@
-import type { Mode } from "./types";
+import type { Mode } from "./types.ts";
 
 const BASE = `You are CodeSense, a precise and concise code assistant embedded inside a developer's editor.
 You receive raw code snippets. You never hallucinate APIs or fabricate behavior.
