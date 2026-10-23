@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.2.1] - 2026-10-23
+
+### Added
+- Codesense unit tests: `src/lib/codesense/snippet.test.ts`, `prompts.test.ts`, `rateLimit.test.ts`, `stream.test.ts` covering snippet extraction/limit enforcement, prompt template rendering, token-bucket rate limiting, and streaming event parsing
+- Smoke test (`scripts/codesense-smoke.test.mjs`): end-to-end validation of the `GET /api/detect` snippet flow (matches, no-match, client attribution)
+
 ## [0.2.0] - 2026-10-22
 
 ### Added
