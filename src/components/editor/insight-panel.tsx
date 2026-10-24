@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ParsedReview, ParsedTest, ReviewRisk, ReviewSeverity, StreamStatus } from "@/lib/codesense/types";
 import { getActiveFile, useCodesense } from "@/lib/codesense/store";
+import { auditSecurity } from "@/lib/codesense/security-audit";
 import { Markdown } from "./markdown";
 import { RefactorDiffDialog } from "./refactor-diff-dialog";
 import { cn } from "@/lib/utils";
@@ -207,12 +208,13 @@ function ExplainBody({
 
 function severityVariant(severity: ReviewSeverity) {
   switch (severity) {
-    case "low":
-      return "default";
-    case "medium":
-      return "warn";
+    case "critical":
     case "high":
       return "danger";
+    case "medium":
+      return "warn";
+    case "low":
+      return "default";
   }
 }
 
@@ -257,7 +259,12 @@ function ReviewBody({
   const parsed = insight.review;
   const feedback = useCodesense((s) => s.feedback);
   const rateFeedback = useCodesense((s) => s.rateFeedback);
+  const file = useCodesense(getActiveFile);
   const fallback = useMemo(() => insight.text, [insight.text]);
+  const securityFindings = useMemo(
+    () => auditSecurity(file.content, file.language),
+    [file.content, file.language],
+  );
 
   if (insight.status === "idle" && !insight.text) {
     return (
@@ -317,6 +324,24 @@ function ReviewBody({
           ))}
           {parsed.risks.length === 0 && (
             <p className="text-sm text-muted">No risks detected.</p>
+          )}
+        </ul>
+      </section>
+      <section className="flex flex-col gap-3">
+        <p className="text-sm font-medium text-foreground uppercase tracking-wide">
+          Security
+        </p>
+        <ul className="flex flex-col gap-2 pl-1">
+          {securityFindings.map((finding) => (
+            <RiskItem
+              key={finding.msg + finding.line}
+              risk={finding}
+              rate={rate}
+              rated={feedback[finding.msg]}
+            />
+          ))}
+          {securityFindings.length === 0 && (
+            <p className="text-sm text-muted">No security issues detected.</p>
           )}
         </ul>
       </section>

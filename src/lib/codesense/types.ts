@@ -43,7 +43,7 @@ export type StreamingMetrics = {
   estimatedCostUsd: number | null;
 };
 
-export type ReviewSeverity = "low" | "medium" | "high";
+export type ReviewSeverity = "low" | "medium" | "high" | "critical";
 
 export type ReviewRisk = {
   line: number | null;

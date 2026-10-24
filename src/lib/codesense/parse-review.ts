@@ -1,6 +1,6 @@
 import type { ParsedReview, ReviewRisk, ReviewSeverity } from "./types";
 
-const SEVERITIES: ReviewSeverity[] = ["low", "medium", "high"];
+const SEVERITIES: ReviewSeverity[] = ["low", "medium", "high", "critical"];
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
