@@ -7,6 +7,7 @@ import {
   type Insight,
 } from "@/lib/codesense/store";
 import { cn } from "@/lib/utils";
+import { version } from "../../../package.json";
 
 export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
   const isMobile = useMediaQuery("(max-width: 767px)");
@@ -102,7 +103,7 @@ export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
           className="hidden sm:inline underline underline-offset-4 hover:text-accent transition-colors"
           title="View changelog"
         >
-          v1
+          v{version}
         </a>
         <span className="flex items-center gap-1.5">
           <span

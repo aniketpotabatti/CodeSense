@@ -25,6 +25,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.4.0] - 2026-10-24
+
+### Added
+- Static security audit: scans source code for known insecure patterns and returns findings as `ReviewRisk` objects (`src/lib/codesense/security-audit.ts`)
+- Insight panel: displays detected security findings, with a section listing issues or a "no issues found" message (`src/components/editor/insight-panel.tsx`)
+
+### Changed
+- `ReviewSeverity`: added new `"critical"` severity level for categorizing security risks (`src/lib/codesense/types.ts`)
+- `parse-review`: enhanced to accommodate the new `critical` severity level (`src/lib/codesense/parse-review.ts`)
+
+### Deprecated
+- None
+
+### Removed
+- None
+
+### Fixed
+- None
+
+### Security
+- None
+
 ## [0.3.1] - 2026-10-24
 
 ### Added
