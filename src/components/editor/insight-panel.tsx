@@ -1,4 +1,4 @@
-import { Check, Copy, Lightbulb, ListChecks, Play, ScanText, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Activity, Check, Copy, Lightbulb, ListChecks, Play, ScanText, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ParsedReview, ParsedTest, ReviewRisk, ReviewSeverity, StreamStatus } from "@/lib/codesense/types";
 import { getActiveFile, useCodesense } from "@/lib/codesense/store";
+import type { ComplexityReport } from "@/lib/codesense/complexity";
 import { auditSecurity } from "@/lib/codesense/security-audit";
 import { Markdown } from "./markdown";
 import { RefactorDiffDialog } from "./refactor-diff-dialog";
@@ -17,6 +18,10 @@ export function InsightPanel() {
   const explain = useCodesense((s) => s.explain);
   const review = useCodesense((s) => s.review);
   const test = useCodesense((s) => s.test);
+  const complexity = useCodesense((s) => s.complexity);
+  const complexityStatus = useCodesense((s) => s.complexityStatus);
+  const complexityError = useCodesense((s) => s.complexityError);
+  const runComplexity = useCodesense((s) => s.runComplexity);
   const suggestPreview = useCodesense((s) => s.suggestPreview);
   const aiAvailable = useCodesense((s) => s.aiAvailable);
   const coachDismissed = useCodesense((s) => s.coachDismissed);
@@ -27,7 +32,9 @@ export function InsightPanel() {
       ? explain
       : panelTab === "review"
         ? review
-        : test;
+        : panelTab === "test"
+          ? test
+          : null;
 
   const loadHistory = useCodesense((s) => s.loadHistory);
   useEffect(() => {
@@ -58,7 +65,14 @@ export function InsightPanel() {
           label="Test"
           status={test.status}
         />
-        <CopyButton text={active.text} disabled={!active.text} />
+        <PanelTab
+          active={panelTab === "complexity"}
+          onClick={() => setPanelTab("complexity")}
+          icon={<Activity className="size-3.5" />}
+          label="Profile"
+          status={complexityStatus}
+        />
+        <CopyButton text={active?.text ?? ""} disabled={!active?.text} />
       </div>
 
       {!coachDismissed && (
@@ -75,7 +89,7 @@ export function InsightPanel() {
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="px-4 py-4">
-          {aiAvailable === false ? (
+          {aiAvailable === false && panelTab !== "complexity" ? (
             <EmptyState
               title="AI is paused"
               body="The model gateway is not accepting requests right now. You can still edit, switch files, and save locally."
@@ -84,8 +98,15 @@ export function InsightPanel() {
             <ExplainBody insight={explain} />
           ) : panelTab === "review" ? (
             <ReviewBody insight={review} />
-          ) : (
+          ) : panelTab === "test" ? (
             <TestBody insight={test} />
+          ) : (
+            <ComplexityBody
+              complexity={complexity}
+              status={complexityStatus}
+              error={complexityError}
+              runComplexity={runComplexity}
+            />
           )}
 
           {suggestPreview && (
@@ -538,6 +559,145 @@ function EmptyState({ title, body }: { title: string; body: string }) {
     <div className="flex flex-col gap-1.5">
       <h2 className="text-sm font-medium text-foreground">{title}</h2>
       <p className="text-sm leading-relaxed text-muted">{body}</p>
+    </div>
+  );
+}
+
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-surface-2 rounded-md p-2">
+      <p className="text-xs text-muted uppercase tracking-wide">{label}</p>
+      <p className="text-sm font-medium text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function ComplexityBody({
+  complexity,
+  status,
+  error,
+  runComplexity,
+}: {
+  complexity: ComplexityReport | null;
+  status: "idle" | "done" | "error";
+  error: string | null;
+  runComplexity: () => Promise<void>;
+}) {
+  const file = useCodesense(getActiveFile);
+  const [ran, setRan] = useState(false);
+
+  useEffect(() => {
+    if (!complexity) {
+      setRan(false);
+    }
+  }, [complexity]);
+
+  useEffect(() => {
+    if (ran || status !== "idle" || complexity || !file.content.trim()) {
+      return;
+    }
+    void runComplexity();
+    setRan(true);
+  }, [ran, status, complexity, runComplexity, file.content]);
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-destructive">{error}</p>
+        <Button variant="outline" size="sm" onClick={() => void runComplexity()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  if (!complexity) {
+    return (
+      <EmptyState
+        title="No complexity profile yet"
+        body="Press Profile in the toolbar to run a static complexity scan on the current file."
+      />
+    );
+  }
+
+  const issueVariant = (severity: "low" | "medium" | "high") =>
+    severity === "high" ? "danger" : severity === "medium" ? "warn" : "default";
+
+  const scoreVariant =
+    complexity.score >= 80 ? "default" : complexity.score >= 60 ? "warn" : "danger";
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Complexity profile</h2>
+          <p className="text-xs text-muted">
+            {complexity.language} · {complexity.lines} lines · score {complexity.score}/100
+          </p>
+        </div>
+        <Badge variant={scoreVariant}>Score {complexity.score}</Badge>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <Stat label="Cyclomatic" value={String(complexity.cyclomatic)} />
+        <Stat label="Max nesting" value={String(complexity.maxNestingDepth)} />
+        <Stat label="Est. time" value={complexity.estimatedTime} />
+        <Stat label="Est. space" value={complexity.estimatedSpace} />
+      </div>
+
+      {complexity.functions.length > 0 && (
+        <section className="border-t border-border pt-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+            Functions
+          </h3>
+          <div className="overflow-x-auto mt-2">
+            <table className="text-sm w-full">
+              <thead>
+                <tr>
+                  <th className="text-left text-muted">Name</th>
+                  <th className="text-right text-muted">Lines</th>
+                  <th className="text-right text-muted">Cyclomatic</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-2">
+                {complexity.functions.map((fn) => (
+                  <tr key={fn.name}>
+                    <td className="font-mono text-sm">{fn.name}</td>
+                    <td className="text-right text-sm">{fn.lines}</td>
+                    <td className="text-right text-sm">{fn.cyclomatic}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      <section className="border-t border-border pt-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">
+          Issues ({complexity.issues.length})
+        </h3>
+        {complexity.issues.length === 0 ? (
+          <p className="mt-2 text-xs text-muted">No issues detected.</p>
+        ) : (
+          <ul className="mt-2 space-y-1">
+            {complexity.issues.map((issue, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <Badge variant={issueVariant(issue.severity)} className="text-xs shrink-0">
+                  {issue.kind}
+                </Badge>
+                <div className="min-w-0">
+                  <p className="text-sm leading-relaxed text-foreground">
+                    {issue.message}
+                  </p>
+                  <p className="text-xs text-muted">Line {issue.line}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
