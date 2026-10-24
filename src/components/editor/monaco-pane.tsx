@@ -134,7 +134,9 @@ export function MonacoPane() {
     editor.onDidDispose(() => setEditor(null));
 
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-      void useCodesense.getState().runReview("save");
+      const state = useCodesense.getState();
+      void state.runReview("save");
+      if (state.settings.testOnSave) void state.runTest("save");
     });
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyE, () => {
       void useCodesense.getState().runExplain("manual");

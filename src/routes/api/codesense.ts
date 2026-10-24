@@ -6,13 +6,21 @@ import { apiKeyMiddleware } from "@/lib/codesense/apiKeyMiddleware";
 import type { CodesenseRequest } from "@/lib/codesense/types";
 
 // Request body validation schema. Snippets and keys are validated here but
-// never logged — see provider.ts for the no-logging guarantee.
+// never logged â€” see provider.ts for the no-logging guarantee.
+const ContextFileSchema = z.object({
+  name: z.string().min(1).max(200),
+  language: z.string().min(1).max(40),
+  content: z.string().max(8000),
+});
+
 const CodesenseRequestSchema = z.object({
-  mode: z.enum(["explain", "review", "suggest"]),
+  mode: z.enum(["explain", "review", "suggest", "test"]),
   language: z.string().min(1).max(40),
   snippet: z.string().min(1),
   cursorLine: z.number().int().min(1).optional(),
   cursorCol: z.number().int().min(1).optional(),
+  /** Other open files to include as background context. Capped at 5 entries. */
+  contextFiles: z.array(ContextFileSchema).max(5).optional(),
 });
 
 export const Route = createFileRoute("/api/codesense")({

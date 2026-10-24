@@ -1,10 +1,10 @@
-import { Check, Copy, Lightbulb, ListChecks, ScanText, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Check, Copy, Lightbulb, ListChecks, Play, ScanText, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { ParsedReview, ReviewRisk, ReviewSeverity, StreamStatus } from "@/lib/codesense/types";
+import type { ParsedReview, ParsedTest, ReviewRisk, ReviewSeverity, StreamStatus } from "@/lib/codesense/types";
 import { getActiveFile, useCodesense } from "@/lib/codesense/store";
 import { Markdown } from "./markdown";
 import { RefactorDiffDialog } from "./refactor-diff-dialog";
@@ -15,12 +15,18 @@ export function InsightPanel() {
   const setPanelTab = useCodesense((s) => s.setPanelTab);
   const explain = useCodesense((s) => s.explain);
   const review = useCodesense((s) => s.review);
+  const test = useCodesense((s) => s.test);
   const suggestPreview = useCodesense((s) => s.suggestPreview);
   const aiAvailable = useCodesense((s) => s.aiAvailable);
   const coachDismissed = useCodesense((s) => s.coachDismissed);
   const dismissCoach = useCodesense((s) => s.dismissCoach);
 
-  const active = panelTab === "explain" ? explain : review;
+  const active =
+    panelTab === "explain"
+      ? explain
+      : panelTab === "review"
+        ? review
+        : test;
 
   const loadHistory = useCodesense((s) => s.loadHistory);
   useEffect(() => {
@@ -44,14 +50,21 @@ export function InsightPanel() {
           label="Review"
           status={review.status}
         />
+        <PanelTab
+          active={panelTab === "test"}
+          onClick={() => setPanelTab("test")}
+          icon={<Play className="size-3.5" />}
+          label="Test"
+          status={test.status}
+        />
         <CopyButton text={active.text} disabled={!active.text} />
       </div>
 
       {!coachDismissed && (
         <div className="flex items-start gap-3 border-b border-border px-4 py-3">
           <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted">
-            Select a block to explain it. Save to run a review. Pause typing for
-            ghost completions.
+            Select a block to explain it. Save to review (and generate tests
+            when "Tests on save" is on). Pause typing for ghost completions.
           </p>
           <Button variant="ghost" size="sm" onClick={dismissCoach}>
             Dismiss
@@ -68,8 +81,10 @@ export function InsightPanel() {
             />
           ) : panelTab === "explain" ? (
             <ExplainBody insight={explain} />
-          ) : (
+          ) : panelTab === "review" ? (
             <ReviewBody insight={review} />
+          ) : (
+            <TestBody insight={test} />
           )}
 
           {suggestPreview && (
@@ -312,6 +327,100 @@ function ReviewBody({
           rated={feedback[parsed.refactor.diff]}
         />
       )}
+      {insight.error && <p className="mt-3 text-sm text-destructive">{insight.error}</p>}
+    </div>
+  );
+}
+
+function TestBody({
+  insight,
+}: {
+  insight: {
+    text: string;
+    status: StreamStatus;
+    error: string | null;
+    test: ParsedTest | null;
+  };
+}) {
+  const parsed = insight.test;
+  const feedback = useCodesense((s) => s.feedback);
+  const rateFeedback = useCodesense((s) => s.rateFeedback);
+  const rated = feedback[parsed?.code ?? ""];
+
+  if (insight.status === "idle" && !insight.text) {
+    return (
+      <EmptyState
+        title="No tests yet"
+        body="Generate tests from the toolbar or command palette, or enable &quot;Tests on save&quot; in settings and press Ctrl/Cmd+S."
+      />
+    );
+  }
+
+  if (insight.status === "streaming" && !insight.text) {
+    return <p className="shimmer bg-clip-text text-sm text-muted">Generating tests</p>;
+  }
+
+  const rate = (key: string, kind: "up" | "down") => {
+    rateFeedback(key, kind);
+    toast(kind === "up" ? "Marked helpful" : "Noted — thanks", {
+      description: "This helps improve CodeSense's test prompts.",
+    });
+  };
+
+  if (!parsed) {
+    return (
+      <div>
+        <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+          {insight.text}
+          {insight.status === "streaming" && <span className="streaming-caret" />}
+        </div>
+        {insight.error && <p className="mt-3 text-sm text-destructive">{insight.error}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-foreground uppercase tracking-wide">
+          Framework
+        </p>
+        <Badge variant="default">{parsed.framework}</Badge>
+        <p className="text-sm leading-relaxed text-foreground">
+          {parsed.description}
+        </p>
+      </div>
+      <section className="flex flex-col gap-3">
+        <p className="text-sm font-medium text-foreground uppercase tracking-wide">
+          Test cases
+        </p>
+        <ul className="flex flex-col gap-2 pl-1">
+          {parsed.testCases.map((tc) => (
+            <li key={tc.name} className="flex items-start gap-2 pt-2 border-l-2 pl-3 border-surface">
+              <span className="text-sm leading-relaxed text-foreground">
+                {tc.name}
+              </span>
+              <span className="text-xs text-muted">{tc.description}</span>
+            </li>
+          ))}
+          {parsed.testCases.length === 0 && (
+            <p className="text-sm text-muted">No test cases detected.</p>
+          )}
+        </ul>
+      </section>
+      <section className="flex flex-col gap-2">
+        <p className="text-sm font-medium text-foreground uppercase tracking-wide">
+          Test code
+        </p>
+        <pre className="overflow-x-auto rounded-md bg-background p-3 font-mono text-xs leading-relaxed text-foreground shadow-border">
+          {parsed.code}
+        </pre>
+        <div className="flex gap-1">
+          <CopyButton text={parsed.code} disabled={!parsed.code} />
+          <ThumbButton kind="up" active={rated === "up"} onClick={() => rate(parsed.code, "up")} />
+          <ThumbButton kind="down" active={rated === "down"} onClick={() => rate(parsed.code, "down")} />
+        </div>
+      </section>
       {insight.error && <p className="mt-3 text-sm text-destructive">{insight.error}</p>}
     </div>
   );

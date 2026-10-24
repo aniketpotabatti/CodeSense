@@ -69,16 +69,22 @@ export function demoResponse(ctx: {
     );
   }
   if (ctx.mode === "suggest") {
-    const last = lines[lines.length - 1] || "";
-    if (
-      /function\s+\w+\s*\([^)]*\)\s*\{\s*$/.test(last.trim()) ||
-      last.trim().endsWith("{")
-    ) {
-      return "\n  // TODO: implement\n  return null;\n}";
-    }
-    if (/^\s*(const|let|var)\s+\w+\s*=\s*$/.test(last)) return " null;";
-    if (ctx.language === "python") return "\n    pass";
-    return "\n  // completed by CodeSense\n";
+    return "";
+  }
+  if (ctx.mode === "test") {
+    const isPython = ctx.language === "python";
+    return JSON.stringify({
+      framework: isPython ? "pytest" : "jest",
+      description:
+        "Unit tests covering the happy path and edge cases for the snippet.",
+      code: isPython
+        ? "import unittest\\n\\nclass TestSnippet(unittest.TestCase):\\n    def test_happy_path(self):\\n        self.assertTrue(True)\\n\\n\\nif __name__ == \"__main__\":\\n    unittest.main()\\n"
+        : "// Tests for the snippet\\n// (demo mode — add an API key for generated tests)\\nimport { describe, it, expect } from \"jest\";\\n\\ndescribe(\"snippet\", () => {\\n  it(\"behaves as expected\", () => {\\n    expect(true).toBe(true);\\n  });\\n});\\n",
+      testCases: [
+        { name: "happy path", description: "Verifies expected behavior with valid input." },
+        { name: "edge case", description: "Verifies behavior with empty or null input." },
+      ],
+    });
   }
   return "";
 }
@@ -142,7 +148,8 @@ export async function handleCodesense(
   if (
     body.mode !== "explain" &&
     body.mode !== "review" &&
-    body.mode !== "suggest"
+    body.mode !== "suggest" &&
+    body.mode !== "test"
   ) {
     return jsonError(
       { error: "INVALID_MODE", message: "Unknown mode." },
@@ -184,6 +191,7 @@ export async function handleCodesense(
     snippet,
     cursorLine,
     cursorCol,
+    contextFiles: body.contextFiles,
   });
 
   const timeout = AbortSignal.timeout(30_000);

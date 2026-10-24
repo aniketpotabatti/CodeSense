@@ -74,12 +74,28 @@ export function SettingsSheet() {
               }
             />
             <SettingRow
+              label="Tests on save"
+              hint="Ctrl/Cmd+S also generates unit tests for the file."
+              checked={settings.testOnSave}
+              onCheckedChange={(checked) =>
+                patchSettings({ testOnSave: checked })
+              }
+            />
+            <SettingRow
               label="Ghost completions"
               hint="After you pause typing, suggest the next few tokens."
               checked={settings.suggestOnIdle}
               onCheckedChange={(checked) =>
                 patchSettings({ suggestOnIdle: checked })
               }
+            />
+            <SettingRow
+              label="Include open files as context"
+              checked={settings.includeContext}
+              onCheckedChange={(checked) =>
+                patchSettings({ includeContext: checked })
+              }
+              hint="Send other open tabs as background context for Explain / Review."
             />
           </section>
 

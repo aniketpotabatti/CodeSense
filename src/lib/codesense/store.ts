@@ -1,33 +1,37 @@
-import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
-import {
-  clearHistoryEntries,
-  deleteHistoryEntry,
-  getHistoryEntries,
-  isHistoryAvailable,
-  saveHistoryEntry,
-  type HistoryEntry,
-} from "./history";
-import { parseReview } from "./parse-review";
-import { cloneSamples } from "./samples";
-import { extractSnippet, stripCompletionFences } from "./snippet";
-import { CodesenseApiError, fetchAiHealth, streamCodesense } from "./stream";
-import type { editor as MonacoEditor } from "monaco-editor";
 import {
   DEFAULT_SETTINGS,
+  type ContextFile,
   type FileTab,
   type Mode,
   type ParsedReview,
+  type ParsedTest,
   type Settings,
   type StreamStatus,
   type StreamingMetrics,
 } from "./types";
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { streamCodesense, CodesenseApiError } from "./stream.ts";
+import { parseReview } from "./parse-review.ts";
+import { parseTest } from "./parse-test.ts";
+import { extractSnippet, stripCompletionFences } from "./snippet.ts";
+import {
+  isHistoryAvailable,
+  getHistoryEntries,
+  saveHistoryEntry,
+  deleteHistoryEntry,
+  clearHistoryEntries,
+  type HistoryEntry,
+} from "./history.ts";
+import { cloneSamples } from "./samples.ts";
+import type { editor as MonacoEditor } from "monaco-editor";
 
 export type Insight = {
   text: string;
   status: StreamStatus;
   error: string | null;
   review: ParsedReview | null;
+  test: ParsedTest | null;
 };
 
 type Store = {
@@ -47,6 +51,7 @@ type Store = {
   remaining: number | null;
   explain: Insight;
   review: Insight;
+  test: Insight;
   suggestPreview: string;
   streaming: StreamingMetrics;
   setActiveFile: (id: string) => void;
@@ -63,6 +68,7 @@ type Store = {
   probeHealth: () => Promise<void>;
   runExplain: (source?: "select" | "manual") => Promise<void>;
   runReview: (source?: "save" | "manual") => Promise<void>;
+  runTest: (source?: "save" | "manual") => Promise<void>;
   runSuggest: (signal: AbortSignal) => Promise<string>;
   applySuggest: (text: string) => void;
   history: HistoryEntry[];
@@ -78,12 +84,58 @@ const emptyInsight = (): Insight => ({
   status: "idle",
   error: null,
   review: null,
+  test: null,
 });
 
-const controllers: { explain?: AbortController; review?: AbortController } = {};
+const controllers: {
+  explain?: AbortController;
+  review?: AbortController;
+  test?: AbortController;
+} = {};
 
 function activeFile(state: Pick<Store, "files" | "activeFileId">): FileTab {
   return state.files.find((file) => file.id === state.activeFileId) ?? state.files[0]!;
+}
+
+
+/** Max total chars across all context files to keep token costs in check. */
+const MAX_CONTEXT_TOTAL_CHARS = 4000;
+
+/**
+ * Collect the non-active file tabs as ContextFile objects for multi-file context.
+ * Trims content so total chars stay within budget.
+ */
+function collectContextFiles(
+  state: Pick<Store, "files" | "activeFileId" | "settings">,
+): ContextFile[] {
+  if (!state.settings.includeContext) return [];
+  let budget = MAX_CONTEXT_TOTAL_CHARS;
+  return state.files
+    .filter((f) => f.id !== state.activeFileId && f.content.trim())
+    .map((f): ContextFile => {
+      const trimmed =
+        f.content.length > budget
+          ? f.content.slice(0, budget)
+          : f.content;
+      budget -= trimmed.length;
+      return { name: f.name, language: f.language, content: trimmed };
+    })
+    .filter((f) => f.content.length > 0);
+}
+/**
+ * Fetch the gateway health report: { available, model }.
+ */
+async function fetchAiHealth(): Promise<{
+  available: boolean;
+  model: string;
+}> {
+  const res = await fetch("/api/codesense", { method: "GET" });
+  if (!res.ok) return { available: false, model: "" };
+  const json = (await res.json()) as { available?: boolean; model?: string };
+  return {
+    available: Boolean(json.available),
+    model: json.model ?? "",
+  };
 }
 
 function errorMessage(err: unknown): string {
@@ -98,7 +150,7 @@ function errorMessage(err: unknown): string {
 
 export function isRetryableClientError(code: string | undefined): boolean {
   // Only transient gateway errors are worth retrying. INVALID_MODE, EMPTY_SNIPPET,
-  // and TOKEN_LIMIT_EXCEEDED are 4xx client errors — retrying them never succeeds.
+  // and TOKEN_LIMIT_EXCEEDED are 4xx client errors Ã¢â‚¬â€ retrying them never succeeds.
   return code === "RATE_LIMITED" || code === "PROVIDER_TIMEOUT" || code === "PROVIDER_ERROR";
 }
 
@@ -120,6 +172,7 @@ export const useCodesense = create<Store>()(
       remaining: null,
       explain: emptyInsight(),
       review: emptyInsight(),
+      test: emptyInsight(),
       suggestPreview: "",
       streaming: {
         ttftMs: null,
@@ -162,6 +215,7 @@ export const useCodesense = create<Store>()(
           activeFileId: "retry",
           explain: emptyInsight(),
           review: emptyInsight(),
+          test: emptyInsight(),
           suggestPreview: "",
           hasTyped: false,
         }),
@@ -182,6 +236,7 @@ export const useCodesense = create<Store>()(
               status: "error",
               error: "AI features are unavailable in this environment.",
               review: null,
+              test: null,
             },
           });
           return;
@@ -202,7 +257,7 @@ export const useCodesense = create<Store>()(
 
         set({
           panelTab: "explain",
-          explain: { text: "", status: "streaming", error: null, review: null },
+          explain: { text: "", status: "streaming", error: null, review: null, test: null },
           streaming: {
             ttftMs: null,
             tps: null,
@@ -221,6 +276,7 @@ export const useCodesense = create<Store>()(
               snippet,
               cursorLine: state.cursor.line,
               cursorCol: state.cursor.col,
+              contextFiles: collectContextFiles(state),
             },
             controller.signal,
             (delta) => {
@@ -239,6 +295,7 @@ export const useCodesense = create<Store>()(
                   status: "streaming",
                   error: null,
                   review: null,
+                  test: null,
                 },
                 streaming: {
                   ttftMs,
@@ -254,7 +311,7 @@ export const useCodesense = create<Store>()(
           );
           set({
             remaining,
-            explain: { text, status: "done", error: null, review: null },
+            explain: { text, status: "done", error: null, review: null, test: null },
           });
           if (source === "manual") {
             void get().addHistoryEntry({
@@ -288,6 +345,7 @@ export const useCodesense = create<Store>()(
               status: "error",
               error: message || "Explain failed.",
               review: null,
+              test: null,
             },
           });
         }
@@ -304,6 +362,7 @@ export const useCodesense = create<Store>()(
               status: "error",
               error: "AI features are unavailable in this environment.",
               review: null,
+              test: null,
             },
           });
           return;
@@ -321,7 +380,7 @@ export const useCodesense = create<Store>()(
 
         set({
           panelTab: "review",
-          review: { text: "", status: "streaming", error: null, review: null },
+          review: { text: "", status: "streaming", error: null, review: null, test: null },
           streaming: {
             ttftMs: null,
             tps: null,
@@ -340,6 +399,7 @@ export const useCodesense = create<Store>()(
               snippet: file.content,
               cursorLine: state.cursor.line,
               cursorCol: state.cursor.col,
+              contextFiles: collectContextFiles(state),
             },
             controller.signal,
             (delta) => {
@@ -358,6 +418,7 @@ export const useCodesense = create<Store>()(
                   status: "streaming",
                   error: null,
                   review: parseReview(text),
+                  test: null,
                 },
                 streaming: {
                   ttftMs,
@@ -378,6 +439,7 @@ export const useCodesense = create<Store>()(
               status: "done",
               error: null,
               review: parseReview(text),
+              test: null,
             },
           });
           if (source === "manual") {
@@ -412,6 +474,141 @@ export const useCodesense = create<Store>()(
               status: "error",
               error: message || "Review failed.",
               review: get().review.review,
+              test: null,
+            },
+          });
+        }
+      },
+
+      runTest: async (source = "manual") => {
+        const state = get();
+        if (source === "save" && !state.settings.testOnSave) return;
+        if (state.aiAvailable === false) {
+          set({
+            panelTab: "test",
+            test: {
+              text: "",
+              status: "error",
+              error: "AI features are unavailable in this environment.",
+              review: null,
+              test: null,
+            },
+          });
+          return;
+        }
+        const file = activeFile(state);
+        if (!file.content.trim()) return;
+
+        controllers.test?.abort();
+        const controller = new AbortController();
+        controllers.test = controller;
+
+        const startTime = performance.now();
+        let firstDeltaTime: number | null = null;
+        let outputTokens = 0;
+
+        set({
+          panelTab: "test",
+          test: {
+            text: "",
+            status: "streaming",
+            error: null,
+            review: null,
+            test: null,
+          },
+          streaming: {
+            ttftMs: null,
+            tps: null,
+            outputTokens: 0,
+            startTime,
+            estimatedCostUsd: null,
+          },
+        });
+
+        try {
+          let text = "";
+          const { remaining } = await streamCodesense(
+            {
+              mode: "test",
+              language: file.language,
+              snippet: file.content,
+              cursorLine: state.cursor.line,
+              cursorCol: state.cursor.col,
+              contextFiles: collectContextFiles(state),
+            },
+            controller.signal,
+            (delta) => {
+              const now = performance.now();
+              if (firstDeltaTime === null) firstDeltaTime = now;
+              outputTokens += Math.max(1, Math.ceil(delta.length / 4));
+              const elapsed = (now - startTime) / 1000;
+              const tps = elapsed > 0 ? outputTokens / elapsed : null;
+              const ttftMs = firstDeltaTime ? firstDeltaTime - startTime : null;
+              const estimatedCostUsd =
+                outputTokens > 0 ? outputTokens * 0.0000015 : null;
+              text += delta;
+              set({
+                test: {
+                  text,
+                  status: "streaming",
+                  error: null,
+                  review: null,
+                  test: null,
+                },
+                streaming: {
+                  ttftMs,
+                  tps: tps ? Math.round(tps * 10) / 10 : null,
+                  outputTokens,
+                  startTime,
+                  estimatedCostUsd: estimatedCostUsd
+                    ? Math.round(estimatedCostUsd * 1000000) / 1000000
+                    : null,
+                },
+              });
+            },
+          );
+          const parsed = parseTest(text);
+          set({
+            remaining,
+            test: {
+              text,
+              status: "done",
+              error: null,
+              review: null,
+              test: parsed,
+            },
+          });
+          if (source === "manual") {
+            void get().addHistoryEntry({
+              mode: "test",
+              language: file.language,
+              fileId: file.id,
+              fileName: file.name,
+              snippet: file.content,
+              text,
+              review: null,
+            });
+          }
+        } catch (err) {
+          if (controller.signal.aborted) {
+            set({ test: { ...get().test, status: "idle" } });
+            return;
+          }
+          const message = errorMessage(err);
+          if (err instanceof CodesenseApiError && err.code === "AI_UNAVAILABLE") {
+            set({ aiAvailable: false });
+          }
+          set({
+            remaining:
+              err instanceof CodesenseApiError && err.code === "RATE_LIMITED"
+                ? 0
+                : get().remaining,
+            test: {
+              text: get().test.text,
+              status: "error",
+              error: message || "Test generation failed.",
+              review: null,
+              test: get().test.test,
             },
           });
         }

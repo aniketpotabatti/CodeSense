@@ -1,4 +1,4 @@
-export const MODES = ["explain", "review", "suggest"] as const;
+export const MODES = ["explain", "review", "suggest", "test"] as const;
 export type Mode = (typeof MODES)[number];
 
 export type GatewayErrorCode =
@@ -17,12 +17,20 @@ export type GatewayError = {
   retryAfter?: number;
 };
 
+export type ContextFile = {
+  name: string;
+  language: string;
+  content: string;
+};
+
 export type CodesenseRequest = {
   mode: Mode;
   language: string;
   snippet: string;
   cursorLine: number;
   cursorCol: number;
+  /** Other open tabs to include as background context (optional). */
+  contextFiles?: ContextFile[];
 };
 
 export type StreamStatus = "idle" | "streaming" | "done" | "error";
@@ -55,6 +63,13 @@ export type ParsedReview = {
   refactor: ReviewRefactor;
 };
 
+export type ParsedTest = {
+  framework: string;
+  description: string;
+  code: string;
+  testCases: Array<{ name: string; description: string }>;
+};
+
 export type FileTab = {
   id: string;
   name: string;
@@ -66,9 +81,12 @@ export type Settings = {
   explainOnSelect: boolean;
   reviewOnSave: boolean;
   suggestOnIdle: boolean;
+  testOnSave: boolean;
   debounceMs: number;
   theme: "dark" | "light";
   apiKey: string;
+  /** Include other open file tabs as context when explaining / reviewing. */
+  includeContext: boolean;
 };
 
 export const LANGUAGES = [
@@ -91,9 +109,11 @@ export const DEFAULT_SETTINGS: Settings = {
   explainOnSelect: true,
   reviewOnSave: true,
   suggestOnIdle: true,
+  testOnSave: false,
   debounceMs: 600,
   theme: "dark",
   apiKey: "",
+  includeContext: true,
 };
 
 export const MAX_INPUT_TOKENS = 800;
@@ -101,4 +121,7 @@ export const MAX_OUTPUT_TOKENS: Record<Mode, number> = {
   explain: 400,
   review: 600,
   suggest: 180,
+  test: 500,
 };
+
+

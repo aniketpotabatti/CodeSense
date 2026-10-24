@@ -46,6 +46,22 @@ describe("codesense provider", () => {
       const out = demoResponse({ mode: "suggest", language: "python", snippet: "def foo():\n    " });
       assert.ok(out.length > 0);
     });
+    it("produces strict JSON test output", () => {
+      const out = demoResponse({
+        mode: "test",
+        language: "typescript",
+        snippet: "export function add(a: number, b: number) { return a + b; }\n",
+      });
+      assert.ok(out.length > 20);
+      const parsed = JSON.parse(out);
+      assert.equal(typeof parsed.framework, "string");
+      assert.ok(parsed.framework.length > 0);
+      assert.equal(typeof parsed.description, "string");
+      assert.equal(typeof parsed.code, "string");
+      assert.ok(parsed.code.length > 0);
+      assert.ok(Array.isArray(parsed.testCases));
+      assert.ok(parsed.testCases.length > 0);
+    });
   });
 });
 
