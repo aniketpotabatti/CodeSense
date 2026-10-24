@@ -25,6 +25,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.3.1] - 2026-10-24
+
+### Added
+- None
+
+### Changed
+- None
+
+### Deprecated
+- None
+
+### Removed
+- None
+
+### Fixed
+- Suggest mode: cursor marker changed from `⬛CURSOR⬛` to `⟦CURSOR⟧` so the suggestion-acceptance assertion matches codebase convention (`src/lib/codesense/prompts.ts`)
+- Content Security Policy: allow `https://cdn.jsdelivr.net` in `style-src` to resolve the monaco-editor stylesheet console warning (`src/routes/__root.tsx`)
+
+### Security
+- None
+
+## [0.3.0] - 2026-10-24
+
+### Added
+- "test" AI mode for generating unit tests from a code snippet, returning strict JSON (`src/lib/codesense/prompts.ts`)
+- Docs: multi-file context support documented as shipped in v0.3.0
+
+### Changed
+- None
+
+### Deprecated
+- None
+
+### Removed
+- None
+
+### Fixed
+- None
+
+### Security
+- None
+
 ## [0.2.2] - 2026-10-23
 
 ### Added

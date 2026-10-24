@@ -104,7 +104,7 @@ ${input.snippet}${ctx}`,
 
   return {
     system,
-    user: `Complete the following code at the cursor marker ⬛CURSOR⬛.
+    user: `Complete the following code at the cursor marker ⟦CURSOR⟧.
 Return ONLY the completion text that should be inserted at the cursor — no explanation, no markdown fences, no quotes.
 Do not repeat code that already exists before the cursor.
 Stop at a logical boundary (end of the current statement, block, or function).
