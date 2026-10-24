@@ -2,13 +2,35 @@
 
 All notable changes to CodeSense will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+<!-- The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). -->
 
 ## [Unreleased]
 
 ### Added
 - None
+
+### Changed
+- None
+
+### Deprecated
+- None
+
+### Removed
+- None
+
+### Fixed
+- None
+
+### Security
+- None
+
+## [0.5.0] - 2026-10-24
+
+### Added
+- Client-side static complexity profiler (`src/lib/codesense/complexity.ts`): `computeComplexity` computes per-file cyclomatic complexity, per-function metrics (name, start/end line, line count), max nesting depth, Big-O time/space estimates, a 0–100 maintainability score, and actionable issues (high complexity, deep nesting, long functions, memory hazards, dynamic code) — heuristic, no LLM or server round trip, works in demo mode
+- Insight panel: new "Profile" tab (`src/components/editor/insight-panel.tsx`) with a toolbar "Profile" action and `ComplexityBody` view rendering score, functions, issues, and estimates; state and `runComplexity` action in `src/lib/codesense/store.ts` with idle/done/error lifecycle
+- Unit tests: `src/lib/codesense/complexity.test.ts` covering cyclomatic counting, recursion/exponential time estimation, issue flags (high-complexity, long-function, memory-hazard, dynamic-code), and function detection for Python, Go, Rust, Java, plus whole-file fallback for SQL
 
 ### Changed
 - None

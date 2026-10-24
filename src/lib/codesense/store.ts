@@ -2,7 +2,6 @@ import {
   DEFAULT_SETTINGS,
   type ContextFile,
   type FileTab,
-  type Mode,
   type ParsedReview,
   type ParsedTest,
   type Settings,
@@ -15,6 +14,7 @@ import { streamCodesense, CodesenseApiError } from "./stream.ts";
 import { parseReview } from "./parse-review.ts";
 import { parseTest } from "./parse-test.ts";
 import { extractSnippet, stripCompletionFences } from "./snippet.ts";
+import { computeComplexity, type ComplexityReport } from "./complexity.ts";
 import {
   isHistoryAvailable,
   getHistoryEntries,
@@ -41,7 +41,7 @@ type Store = {
   selection: string;
   editor: MonacoEditor.IStandaloneCodeEditor | null;
   settings: Settings;
-  panelTab: Exclude<Mode, "suggest">;
+  panelTab: "explain" | "review" | "test" | "complexity";
   coachDismissed: boolean;
   hasTyped: boolean;
   feedback: Record<string, "up" | "down">;
@@ -52,6 +52,9 @@ type Store = {
   explain: Insight;
   review: Insight;
   test: Insight;
+  complexity: ComplexityReport | null;
+  complexityStatus: "idle" | "done" | "error";
+  complexityError: string | null;
   suggestPreview: string;
   streaming: StreamingMetrics;
   setActiveFile: (id: string) => void;
@@ -61,7 +64,7 @@ type Store = {
   setSelection: (text: string) => void;
   setEditor: (editor: MonacoEditor.IStandaloneCodeEditor | null) => void;
   patchSettings: (patch: Partial<Settings>) => void;
-  setPanelTab: (tab: Exclude<Mode, "suggest">) => void;
+  setPanelTab: (tab: "explain" | "review" | "test" | "complexity") => void;
   dismissCoach: () => void;
   markTyped: () => void;
   resetFiles: () => void;
@@ -69,6 +72,7 @@ type Store = {
   runExplain: (source?: "select" | "manual") => Promise<void>;
   runReview: (source?: "save" | "manual") => Promise<void>;
   runTest: (source?: "save" | "manual") => Promise<void>;
+  runComplexity: () => Promise<void>;
   runSuggest: (signal: AbortSignal) => Promise<string>;
   applySuggest: (text: string) => void;
   history: HistoryEntry[];
@@ -173,6 +177,9 @@ export const useCodesense = create<Store>()(
       explain: emptyInsight(),
       review: emptyInsight(),
       test: emptyInsight(),
+      complexity: null,
+      complexityStatus: "idle",
+      complexityError: null,
       suggestPreview: "",
       streaming: {
         ttftMs: null,
@@ -190,6 +197,11 @@ export const useCodesense = create<Store>()(
           files: state.files.map((file) =>
             file.id === id ? { ...file, content } : file,
           ),
+          // The profile is tied to the file's content; clear it on edit so it
+          // isn't mistaken for a fresh measurement.
+          complexity: null,
+          complexityStatus: "idle",
+          complexityError: null,
         })),
       setLanguage: (language) =>
         set((state) => ({
@@ -610,6 +622,31 @@ export const useCodesense = create<Store>()(
               review: null,
               test: get().test.test,
             },
+          });
+        }
+      },
+
+      runComplexity: async () => {
+        const state = get();
+        const file = activeFile(state);
+        set({
+          panelTab: "complexity",
+          complexityStatus: "idle",
+          complexityError: null,
+        });
+        try {
+          const report = computeComplexity(file.content, file.language);
+          set({
+            panelTab: "complexity",
+            complexity: report,
+            complexityStatus: "done",
+            complexityError: null,
+          });
+        } catch (err) {
+          set({
+            complexityStatus: "error",
+            complexityError: errorMessage(err),
+            complexity: null,
           });
         }
       },

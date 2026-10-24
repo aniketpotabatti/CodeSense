@@ -1,4 +1,4 @@
-import { ChevronDown, ListChecks, Play, ScanText, Layers } from "lucide-react";
+import { Activity, ChevronDown, ListChecks, Play, ScanText, Layers } from "lucide-react";
 import { Logo } from "@/components/editor/logo";
 import { SettingsSheet } from "@/components/editor/settings-sheet";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ export function Toolbar() {
   const runExplain = useCodesense((s) => s.runExplain);
   const runReview = useCodesense((s) => s.runReview);
   const runTest = useCodesense((s) => s.runTest);
+  const runComplexity = useCodesense((s) => s.runComplexity);
   const explainStatus = useCodesense((s) => s.explain.status);
   const reviewStatus = useCodesense((s) => s.review.status);
   const testStatus = useCodesense((s) => s.test.status);
@@ -101,6 +102,21 @@ export function Toolbar() {
             </Button>
           </TooltipTrigger>
           <TooltipContent>Generate unit tests for the current file</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void runComplexity()}
+            >
+              <Activity className="size-3.5" />
+              <span className="hidden md:inline">Profile</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            Run complexity profiler on the current file
+          </TooltipContent>
         </Tooltip>
         {contextCount > 0 && (
           <Tooltip>
