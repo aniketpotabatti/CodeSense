@@ -9,7 +9,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "cmdk";
-import { Check, Download, ListChecks, Palette, Play, ScanText, Search } from "lucide-react";
+import { Check, Download, ListChecks, Palette, Play, ScanText, Search, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { getActiveFile, useCodesense, type Insight } from "@/lib/codesense/store";
 import { FileTab, LANGUAGES, type LanguageId } from "@/lib/codesense/types";
@@ -23,9 +23,11 @@ export function CommandPalette() {
   const runExplain = useCodesense((s) => s.runExplain);
   const runReview = useCodesense((s) => s.runReview);
   const runTest = useCodesense((s) => s.runTest);
+  const runSuggestTab = useCodesense((s) => s.runSuggestTab);
   const explainStatus = useCodesense((s) => s.explain.status);
   const reviewStatus = useCodesense((s) => s.review.status);
   const testStatus = useCodesense((s) => s.test.status);
+  const suggestStatus = useCodesense((s) => s.suggest.status);
   const review = useCodesense((s) => s.review);
   const theme = useCodesense((s) => s.settings.theme);
 
@@ -67,6 +69,11 @@ export function CommandPalette() {
     setOpen(false);
     void runReview("manual");
   }, [runReview]);
+
+  const handleSuggest = useCallback(() => {
+    setOpen(false);
+    void runSuggestTab();
+  }, [runSuggestTab]);
 
   const handleTest = useCallback(() => {
     setOpen(false);
@@ -138,6 +145,13 @@ export function CommandPalette() {
                 <span className="ml-auto text-xs text-muted">
                   Ctrl/Cmd+S
                 </span>
+              </CommandItem>
+              <CommandItem
+                onSelect={handleSuggest}
+                disabled={suggestStatus === "streaming"}
+              >
+                <Sparkles className="size-3.5 shrink-0" />
+                Suggest code completion
               </CommandItem>
               <CommandItem
                 onSelect={handleTest}

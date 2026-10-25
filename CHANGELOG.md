@@ -25,6 +25,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.5.1] - 2026-10-25
+
+### Added
+- Dedicated **Suggest** tab in Insight Panel (`src/components/editor/insight-panel.tsx`) with real-time streaming completion, copy code, one-click Apply Suggestion button, and feedback rating.
+- Toolbar **Suggest** trigger button (`src/components/editor/toolbar.tsx`) with keyboard hints for quick code completion at cursor.
+- Command Palette (`Ctrl+K`) action for "Suggest code completion".
+- Multi-provider SSE stream mappers: added `mapGeminiStream` for Google Gemini (`candidates[0].content.parts[0].text`) and `mapAnthropicStream` for Anthropic Claude.
+- Decrypted API key forwarding (`src/lib/codesense/stream.ts`): automatically attaches `X-Codesense-Key` and `x-api-key` to all stream and health requests.
+
+### Changed
+- Updated Gemini upstream to `gemini-2.5-flash` with `streamGenerateContent?alt=sse`.
+- Status bar signal indicator now dynamically reflects provider state: green glow with "Got API Key � Google Gemini" (or active provider) when key is configured, and orange/tan indicator with "Demo mode" when operating keyless.
+
+### Fixed
+- Fixed 503 `AI_UNAVAILABLE` failure when running without server environment variables; CodeSense now smoothly falls back to streaming simulated demo responses for Explain, Review, Suggest, and Test.
+- Fixed health endpoint (`GET /api/codesense`) returning unavailable by checking per-request client key overrides.
+- Fixed `streamCodesense` dropping Gemini chunks due to previously forcing OpenAI payload format across all providers.
+
 ## [0.5.0] - 2026-10-24
 
 ### Added

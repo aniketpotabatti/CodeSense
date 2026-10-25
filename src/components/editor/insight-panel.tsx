@@ -1,4 +1,4 @@
-import { Activity, Check, Copy, Lightbulb, ListChecks, Play, ScanText, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Activity, Check, Copy, Lightbulb, ListChecks, Play, ScanText, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,8 @@ export function InsightPanel() {
   const setPanelTab = useCodesense((s) => s.setPanelTab);
   const explain = useCodesense((s) => s.explain);
   const review = useCodesense((s) => s.review);
+  const suggest = useCodesense((s) => s.suggest);
+  const runSuggestTab = useCodesense((s) => s.runSuggestTab);
   const test = useCodesense((s) => s.test);
   const complexity = useCodesense((s) => s.complexity);
   const complexityStatus = useCodesense((s) => s.complexityStatus);
@@ -32,8 +34,10 @@ export function InsightPanel() {
       ? explain
       : panelTab === "review"
         ? review
-        : panelTab === "test"
-          ? test
+        : panelTab === "suggest"
+          ? suggest
+          : panelTab === "test"
+            ? test
           : null;
 
   const loadHistory = useCodesense((s) => s.loadHistory);
@@ -50,6 +54,13 @@ export function InsightPanel() {
           icon={<ScanText className="size-3.5" />}
           label="Explain"
           status={explain.status}
+        />
+        <PanelTab
+          active={panelTab === "suggest"}
+          onClick={() => setPanelTab("suggest")}
+          icon={<Sparkles className="size-3.5" />}
+          label="Suggest"
+          status={suggest.status}
         />
         <PanelTab
           active={panelTab === "review"}
@@ -96,6 +107,11 @@ export function InsightPanel() {
             />
           ) : panelTab === "explain" ? (
             <ExplainBody insight={explain} />
+          ) : panelTab === "suggest" ? (
+            <SuggestBody
+              insight={suggest}
+              onTrigger={() => void runSuggestTab()}
+            />
           ) : panelTab === "review" ? (
             <ReviewBody insight={review} />
           ) : panelTab === "test" ? (
@@ -193,6 +209,96 @@ function ApplySuggestion({ text }: { text: string }) {
     >
       <Check className="size-3.5 mr-2" /> Apply suggestion
     </Button>
+  );
+}
+
+function SuggestBody({
+  insight,
+  onTrigger,
+}: {
+  insight: { text: string; status: StreamStatus; error: string | null };
+  onTrigger: () => void;
+}) {
+  const [rated, setRated] = useState<"up" | "down" | undefined>();
+  const rateFeedback = useCodesense((s) => s.rateFeedback);
+
+  const rate = (key: string, kind: "up" | "down") => {
+    setRated(kind);
+    rateFeedback(key, kind);
+    toast.success(kind === "up" ? "Helpful" : "Not helpful");
+  };
+
+  if (insight.status === "idle" && !insight.text) {
+    return (
+      <div className="flex flex-col gap-3">
+        <EmptyState
+          title="No suggestion generated yet"
+          body="Press Trigger completion or pause while typing in the editor to stream intelligent code completions at your cursor."
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-fit"
+          onClick={onTrigger}
+        >
+          <Sparkles className="size-3.5 mr-2" />
+          Trigger completion
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Sparkles className="size-4 text-accent" />
+          Code completion
+        </h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onTrigger}
+          disabled={insight.status === "streaming"}
+        >
+          Regenerate
+        </Button>
+      </div>
+
+      {insight.status === "streaming" && !insight.text && (
+        <p className="shimmer bg-clip-text text-sm text-muted">
+          Generating completion...
+        </p>
+      )}
+
+      {insight.text && (
+        <div className="flex flex-col gap-3">
+          <pre className="overflow-x-auto rounded-md bg-background p-3 font-mono text-xs leading-relaxed text-foreground shadow-border border border-border">
+            {insight.text}
+            {insight.status === "streaming" && <span className="streaming-caret" />}
+          </pre>
+          <div className="flex items-center gap-2">
+            <ApplySuggestion text={insight.text} />
+            <div className="flex gap-1 ml-auto">
+              <ThumbButton
+                kind="up"
+                active={rated === "up"}
+                onClick={() => rate(insight.text, "up")}
+              />
+              <ThumbButton
+                kind="down"
+                active={rated === "down"}
+                onClick={() => rate(insight.text, "down")}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {insight.error && (
+        <p className="mt-2 text-sm text-destructive">{insight.error}</p>
+      )}
+    </div>
   );
 }
 

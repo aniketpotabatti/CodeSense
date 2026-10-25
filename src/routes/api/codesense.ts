@@ -26,7 +26,7 @@ const CodesenseRequestSchema = z.object({
 export const Route = createFileRoute("/api/codesense")({
   server: {
     handlers: {
-      GET: async () => healthResponse(),
+      GET: async ({ request }) => healthResponse(request),
       POST: async ({ request }) => {
         // Extract and attach API key from x-api-key header -> x-codesense-key
         const modifiedRequest = apiKeyMiddleware(request);

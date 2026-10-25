@@ -1,4 +1,4 @@
-import { Activity, ChevronDown, ListChecks, Play, ScanText, Layers } from "lucide-react";
+import { Activity, ChevronDown, ListChecks, Play, ScanText, Sparkles, Layers } from "lucide-react";
 import { Logo } from "@/components/editor/logo";
 import { SettingsSheet } from "@/components/editor/settings-sheet";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,12 @@ export function Toolbar() {
   const setLanguage = useCodesense((s) => s.setLanguage);
   const runExplain = useCodesense((s) => s.runExplain);
   const runReview = useCodesense((s) => s.runReview);
+  const runSuggestTab = useCodesense((s) => s.runSuggestTab);
   const runTest = useCodesense((s) => s.runTest);
   const runComplexity = useCodesense((s) => s.runComplexity);
   const explainStatus = useCodesense((s) => s.explain.status);
   const reviewStatus = useCodesense((s) => s.review.status);
+  const suggestStatus = useCodesense((s) => s.suggest.status);
   const testStatus = useCodesense((s) => s.test.status);
   const languageLabel =
     LANGUAGES.find((lang) => lang.id === file.language)?.label ?? file.language;
@@ -88,6 +90,20 @@ export function Toolbar() {
             </Button>
           </TooltipTrigger>
           <TooltipContent>Review the current file (Ctrl/Cmd+S)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void runSuggestTab()}
+              disabled={suggestStatus === "streaming"}
+            >
+              <Sparkles className="size-3.5" />
+              <span className="hidden md:inline">Suggest</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Generate code completion at cursor</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>

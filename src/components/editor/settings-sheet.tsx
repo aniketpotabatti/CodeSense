@@ -13,6 +13,7 @@ export function SettingsSheet() {
   const settings = useCodesense((s) => s.settings);
   const patchSettings = useCodesense((s) => s.patchSettings);
   const resetFiles = useCodesense((s) => s.resetFiles);
+  const probeHealth = useCodesense((s) => s.probeHealth);
   const [apiKey, setApiKey] = useState("");
 
   useEffect(() => {

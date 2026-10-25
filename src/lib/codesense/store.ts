@@ -41,16 +41,18 @@ type Store = {
   selection: string;
   editor: MonacoEditor.IStandaloneCodeEditor | null;
   settings: Settings;
-  panelTab: "explain" | "review" | "test" | "complexity";
+  panelTab: "explain" | "review" | "suggest" | "test" | "complexity";
   coachDismissed: boolean;
   hasTyped: boolean;
   feedback: Record<string, "up" | "down">;
   rateFeedback: (key: string, kind: "up" | "down") => void;
   aiAvailable: boolean | null;
   model: string;
+  provider: string;
   remaining: number | null;
   explain: Insight;
   review: Insight;
+  suggest: Insight;
   test: Insight;
   complexity: ComplexityReport | null;
   complexityStatus: "idle" | "done" | "error";
@@ -64,14 +66,15 @@ type Store = {
   setSelection: (text: string) => void;
   setEditor: (editor: MonacoEditor.IStandaloneCodeEditor | null) => void;
   patchSettings: (patch: Partial<Settings>) => void;
-  setPanelTab: (tab: "explain" | "review" | "test" | "complexity") => void;
+  setPanelTab: (tab: "explain" | "review" | "suggest" | "test" | "complexity") => void;
   dismissCoach: () => void;
   markTyped: () => void;
   resetFiles: () => void;
-  probeHealth: () => Promise<void>;
+  probeHealth: (keyOverride?: string) => Promise<void>;
   runExplain: (source?: "select" | "manual") => Promise<void>;
   runReview: (source?: "save" | "manual") => Promise<void>;
   runTest: (source?: "save" | "manual") => Promise<void>;
+  runSuggestTab: () => Promise<void>;
   runComplexity: () => Promise<void>;
   runSuggest: (signal: AbortSignal) => Promise<string>;
   applySuggest: (text: string) => void;
@@ -95,6 +98,7 @@ const controllers: {
   explain?: AbortController;
   review?: AbortController;
   test?: AbortController;
+  suggest?: AbortController;
 } = {};
 
 function activeFile(state: Pick<Store, "files" | "activeFileId">): FileTab {
@@ -172,10 +176,12 @@ export const useCodesense = create<Store>()(
       feedback: {},
       hasTyped: false,
       aiAvailable: null,
-      model: "grok-4.5",
+      model: "Demo",
+      provider: "demo",
       remaining: null,
       explain: emptyInsight(),
       review: emptyInsight(),
+      suggest: emptyInsight(),
       test: emptyInsight(),
       complexity: null,
       complexityStatus: "idle",
@@ -651,6 +657,145 @@ export const useCodesense = create<Store>()(
         }
       },
 
+      runSuggestTab: async () => {
+        const state = get();
+        if (state.aiAvailable === false) {
+          set({
+            panelTab: "suggest",
+            suggest: {
+              text: "",
+              status: "error",
+              error: "AI features are unavailable in this environment.",
+              review: null,
+              test: null,
+            },
+          });
+          return;
+        }
+        const file = activeFile(state);
+        const { snippet } = extractSnippet(file.content, state.cursor.line);
+        if (!snippet.trim()) return;
+
+        controllers.suggest?.abort();
+        const controller = new AbortController();
+        controllers.suggest = controller;
+
+        const startTime = performance.now();
+        let firstDeltaTime: number | null = null;
+        let outputTokens = 0;
+
+        set({
+          panelTab: "suggest",
+          suggest: {
+            text: "",
+            status: "streaming",
+            error: null,
+            review: null,
+            test: null,
+          },
+          streaming: {
+            ttftMs: null,
+            tps: null,
+            outputTokens: 0,
+            startTime,
+            estimatedCostUsd: null,
+          },
+        });
+
+        try {
+          let text = "";
+          const { remaining } = await streamCodesense(
+            {
+              mode: "suggest",
+              language: file.language,
+              snippet,
+              cursorLine: state.cursor.line,
+              cursorCol: state.cursor.col,
+              contextFiles: collectContextFiles(state),
+            },
+            controller.signal,
+            (delta) => {
+              const now = performance.now();
+              if (firstDeltaTime === null) firstDeltaTime = now;
+              outputTokens += Math.max(1, Math.ceil(delta.length / 4));
+              const elapsed = (now - startTime) / 1000;
+              const tps = elapsed > 0 ? outputTokens / elapsed : null;
+              const ttftMs = firstDeltaTime ? firstDeltaTime - startTime : null;
+              const estimatedCostUsd =
+                outputTokens > 0 ? outputTokens * 0.0000015 : null;
+              text += delta;
+              const cleaned = stripCompletionFences(text);
+              set({
+                suggest: {
+                  text: cleaned,
+                  status: "streaming",
+                  error: null,
+                  review: null,
+                  test: null,
+                },
+                suggestPreview: cleaned,
+                streaming: {
+                  ttftMs,
+                  tps: tps ? Math.round(tps * 10) / 10 : null,
+                  outputTokens,
+                  startTime,
+                  estimatedCostUsd: estimatedCostUsd
+                    ? Math.round(estimatedCostUsd * 1000000) / 1000000
+                    : null,
+                },
+              });
+            },
+          );
+
+          const cleaned = stripCompletionFences(text);
+          set({
+            remaining,
+            suggest: {
+              text: cleaned,
+              status: "done",
+              error: null,
+              review: null,
+              test: null,
+            },
+            suggestPreview: cleaned,
+          });
+
+          if (cleaned.trim()) {
+            get().addHistoryEntry({
+              mode: "suggest",
+              language: file.language,
+              fileId: file.id,
+              fileName: file.name,
+              snippet,
+              text: cleaned,
+              review: null,
+            });
+          }
+        } catch (err) {
+          if (controller.signal.aborted) {
+            set({ suggest: { ...get().suggest, status: "idle" } });
+            return;
+          }
+          const message = errorMessage(err);
+          if (err instanceof CodesenseApiError && err.code === "AI_UNAVAILABLE") {
+            set({ aiAvailable: false });
+          }
+          set({
+            remaining:
+              err instanceof CodesenseApiError && err.code === "RATE_LIMITED"
+                ? 0
+                : get().remaining,
+            suggest: {
+              text: get().suggest.text,
+              status: "error",
+              error: message || "Code suggestion failed.",
+              review: null,
+              test: null,
+            },
+          });
+        }
+      },
+
       runSuggest: async (signal) => {
         const state = get();
         if (!state.settings.suggestOnIdle) return "";
@@ -768,3 +913,5 @@ export const useCodesense = create<Store>()(
 export function getActiveFile(state: Store = useCodesense.getState()): FileTab {
   return activeFile(state);
 }
+
+

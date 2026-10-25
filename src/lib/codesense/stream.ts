@@ -1,4 +1,5 @@
 import type { CodesenseRequest, GatewayError } from "./types.ts";
+import { decryptKey } from "./crypto.ts";
 
 export class CodesenseApiError extends Error {
   readonly code: GatewayError["error"];
@@ -24,8 +25,6 @@ const RETRYABLE_CODES: GatewayError["error"][] = [
   "PROVIDER_ERROR",
 ];
 
-// Retained for documentation of which gateway error codes are retryable.
-// Referenced conceptually by streamCodesense's inline retry logic.
 void RETRYABLE_CODES;
 
 const MAX_RETRIES = 3;
@@ -38,6 +37,32 @@ function sleep(ms: number): Promise<void> {
 function backoffMs(attempt: number, retryAfter?: number): number {
   if (retryAfter) return retryAfter * 1000;
   return BASE_BACKOFF_MS * Math.pow(2, attempt);
+}
+
+/** Retrieve the active user key from localStorage/crypto for request headers. */
+export async function getClientKeyHeaders(storedCipherOrPlain?: string): Promise<Record<string, string>> {
+  if (typeof window === "undefined") return {};
+  let keyToUse = storedCipherOrPlain;
+  if (!keyToUse) {
+    try {
+      const persisted = localStorage.getItem("codesense-v1");
+      if (persisted) {
+        const parsed = JSON.parse(persisted) as { state?: { settings?: { apiKey?: string } } };
+        keyToUse = parsed?.state?.settings?.apiKey;
+      }
+    } catch {
+      // ignore storage access errors
+    }
+  }
+  if (!keyToUse || !keyToUse.trim()) return {};
+  const trimmed = keyToUse.trim();
+  // Attempt decrypt first (if stored encrypted) or use plaintext if already plain
+  const decrypted = (await decryptKey(trimmed).catch(() => null)) || trimmed;
+  if (!decrypted) return {};
+  return {
+    "X-Codesense-Key": decrypted,
+    "x-api-key": decrypted,
+  };
 }
 
 export async function streamCodesense(
@@ -101,9 +126,14 @@ async function attemptStream(
   onDelta: (delta: string) => void,
   _attempt: number,
 ): Promise<{ remaining: number | null }> {
+  const keyHeaders = await getClientKeyHeaders();
+
   const res = await fetch("/api/codesense", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...keyHeaders,
+    },
     body: JSON.stringify(body),
     signal,
   });
@@ -121,7 +151,7 @@ async function attemptStream(
     if (isGatewayError(parsed)) throw new CodesenseApiError(parsed);
     throw new CodesenseApiError({
       error: "PROVIDER_ERROR",
-      message: `Request failed (${res.status})`,
+      message: `Gateway error ${res.status}: ${res.statusText || "Request failed"}`,
     });
   }
 
@@ -171,19 +201,24 @@ async function attemptStream(
   return { remaining };
 }
 
-export async function fetchAiHealth(): Promise<{
+export async function fetchAiHealth(apiKeyCipherOrPlain?: string): Promise<{
   available: boolean;
   model: string;
+  provider?: string;
 }> {
   try {
-    const res = await fetch("/api/codesense");
-    if (!res.ok) return { available: false, model: "grok-4.5" };
-    const body = (await res.json()) as { available?: boolean; model?: string };
+    const keyHeaders = await getClientKeyHeaders(apiKeyCipherOrPlain);
+    const res = await fetch("/api/codesense", {
+      headers: keyHeaders,
+    });
+    if (!res.ok) return { available: true, model: "Demo", provider: "demo" };
+    const body = (await res.json()) as { available?: boolean; model?: string; provider?: string };
     return {
-      available: Boolean(body.available),
-      model: body.model ?? "grok-4.5",
+      available: body.available ?? true,
+      model: body.model ?? "Demo",
+      provider: body.provider ?? "demo",
     };
   } catch {
-    return { available: false, model: "grok-4.5" };
+    return { available: true, model: "Demo", provider: "demo" };
   }
 }

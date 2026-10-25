@@ -24,7 +24,7 @@ function openDb(): Promise<IDBDatabase> {
 
 export type HistoryEntry = {
   id: string;
-  mode: "explain" | "review" | "test";
+  mode: "explain" | "review" | "suggest" | "test";
   language: string;
   timestamp: number;
   fileId: string;

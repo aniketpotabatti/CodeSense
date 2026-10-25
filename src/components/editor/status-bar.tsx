@@ -9,6 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 import { version } from "../../../package.json";
 
+export type AiTone = "muted" | "ok" | "warn" | "busy" | "error" | "demo";
+
 export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
   const isMobile = useMediaQuery("(max-width: 767px)");
   const file = useCodesense(getActiveFile);
@@ -17,7 +19,9 @@ export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
   const remaining = useCodesense((s) => s.remaining);
   const aiAvailable = useCodesense((s) => s.aiAvailable);
   const model = useCodesense((s) => s.model);
+  const provider = useCodesense((s) => s.provider);
   const debounceMs = useCodesense((s) => s.settings.debounceMs);
+  const apiKey = useCodesense((s) => s.settings.apiKey);
   const explain = useCodesense((s) => s.explain);
   const review = useCodesense((s) => s.review);
   const streaming = useCodesense((s) => s.streaming);
@@ -31,16 +35,28 @@ export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
     explain.status === "error" || review.status === "error";
 
   let aiLabel = "Checking AI";
-  let aiTone: "muted" | "ok" | "warn" | "busy" | "error" = "muted";
+  let aiTone: "muted" | "ok" | "warn" | "busy" | "error" | "demo" = "muted";
+  const hasUserKey = Boolean(apiKey && apiKey.trim());
+
   if (hasError) {
     aiLabel = "Error";
     aiTone = "error";
-  } else if (aiAvailable === false) {
-    aiLabel = "AI unavailable";
-    aiTone = "warn";
+  } else if (busy) {
+    aiLabel = "Streaming...";
+    aiTone = "busy";
+  } else if (hasUserKey) {
+    const provName = model && model !== "Demo" && model !== "demo" ? model : "API Key active";
+    aiLabel = `Got API Key � ${provName}`;
+    aiTone = "ok";
+  } else if (provider === "demo" || model === "Demo") {
+    aiLabel = "Demo mode";
+    aiTone = "demo";
   } else if (aiAvailable) {
-    aiLabel = busy ? "Streaming" : model;
-    aiTone = busy ? "busy" : "ok";
+    aiLabel = model;
+    aiTone = "ok";
+  } else {
+    aiLabel = "Demo mode";
+    aiTone = "demo";
   }
 
   const insightForLabel = (insight: Insight): string | null => {
@@ -109,11 +125,10 @@ export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
           <span
             className={cn(
               "size-1.5 rounded-full",
-              aiTone === "ok" && "bg-success",
-              aiTone === "busy" && "bg-accent",
-              aiTone === "warn" && "bg-destructive",
+              aiTone === "ok" && "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+              aiTone === "demo" && "bg-amber-500",
+              aiTone === "busy" && "bg-accent animate-pulse",
               aiTone === "error" && "bg-destructive",
-              aiTone === "muted" && "bg-subtle",
             )}
           />
           <span className="truncate" title={aiLabel}>
@@ -124,7 +139,7 @@ export function StatusBar({ openInsight }: { openInsight?: () => void } = {}) {
               className="text-destructive text-xs"
               title={(explainErr ?? reviewErr) ?? undefined}
             >
-              ⚠
+              �
             </span>
           ) : null}
           {streaming.startTime && (
