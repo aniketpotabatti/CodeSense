@@ -25,6 +25,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.5.2] - 2026-10-26
+
+### Added
+- None
+
+### Changed
+- Moved `CommandPalette` from `app-shell.tsx` into the editor toolbar, anchored between the Context Files button and Settings icon (`src/components/editor/toolbar.tsx`, `src/components/editor/app-shell.tsx`)
+- Refactored the "N files in context" text button into an icon-only `<Layers />` button with a floating counter badge and a `DropdownMenu` popover listing active context files (name, language badge, char count) plus a toggle to enable/disable multi-file context (`src/components/editor/toolbar.tsx`)
+- Reordered Insight Panel tabs to `Explain → Review → Suggest → Test → Profile`, updating the matching body view branches (`src/components/editor/insight-panel.tsx`)
+
+### Deprecated
+- None
+
+### Removed
+- None
+
+### Fixed
+- Fixed misaligned CommandPalette search trigger button (updated `className` to `size-11`, `bg-transparent`, with proper focus ring styles) (`src/components/editor/command-palette.tsx`)
+- Fixed search icon placement by relocating `CommandPalette` from the middle split bar (`src/components/editor/app-shell.tsx`) into the toolbar (`src/components/editor/toolbar.tsx`) between the Context Files button and Settings icon, with a `Ctrl+K` shortcut pill (`src/components/editor/command-palette.tsx`).
+
+### Security
+- None
+
 ## [0.5.1] - 2026-10-25
 
 ### Added

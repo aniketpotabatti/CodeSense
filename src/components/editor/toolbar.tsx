@@ -1,5 +1,6 @@
-import { Activity, ChevronDown, ListChecks, Play, ScanText, Sparkles, Layers } from "lucide-react";
+import { Activity, ChevronDown, File, ListChecks, Play, ScanText, Sparkles, Layers } from "lucide-react";
 import { Logo } from "@/components/editor/logo";
+import { CommandPalette } from "@/components/editor/command-palette";
 import { SettingsSheet } from "@/components/editor/settings-sheet";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,7 @@ export function Toolbar() {
   const files = useCodesense((s) => s.files);
   const activeFileId = useCodesense((s) => s.activeFileId);
   const settings = useCodesense((s) => s.settings);
+  const patchSettings = useCodesense((s) => s.patchSettings);
   const setLanguage = useCodesense((s) => s.setLanguage);
   const runExplain = useCodesense((s) => s.runExplain);
   const runReview = useCodesense((s) => s.runReview);
@@ -35,9 +37,10 @@ export function Toolbar() {
   const languageLabel =
     LANGUAGES.find((lang) => lang.id === file.language)?.label ?? file.language;
 
-  const contextCount = settings.includeContext
-    ? files.filter((f) => f.id !== activeFileId && f.content.trim()).length
-    : 0;
+  const contextFiles = settings.includeContext
+    ? files.filter((f) => f.id !== activeFileId && f.content.trim())
+    : [];
+  const contextCount = contextFiles.length;
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3 md:h-12 md:px-4">
@@ -134,19 +137,65 @@ export function Toolbar() {
             Run complexity profiler on the current file
           </TooltipContent>
         </Tooltip>
-        {contextCount > 0 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" className="ml-1">
-                <Layers className="size-3.5" />
-                <span className="hidden sm:inline">{contextCount} files in context</span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              Other open tabs included as background context.
-            </TooltipContent>
-          </Tooltip>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="relative ml-1">
+              <Layers className="size-3.5" />
+              {contextCount > 0 && (
+                <span className="absolute -top-1 -right-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-medium leading-none text-accent-foreground">
+                  {contextCount}
+                </span>
+              )}
+              <span className="sr-only">
+                {contextCount > 0
+                  ? `${contextCount} files in context`
+                  : "No files in context"}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-80 p-2">
+            <div className="px-3 py-1.5">
+              <h3 className="text-sm font-semibold">
+                Active Background Context ({contextCount})
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Other open tabs included as context for AI actions.
+              </p>
+            </div>
+            <div className="mx-1 my-1 h-px bg-border" />
+            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+              {contextFiles.map((file) => (
+                <div
+                  key={file.id}
+                  className="flex items-center gap-2 px-2 py-1.5 text-xs"
+                >
+                  <File className="size-3.5 opacity-50" />
+                  <span className="truncate">{file.name}</span>
+                  <span className="ml-auto flex items-center gap-1.5">
+                    <span className="rounded-full border border-border px-1.5 py-0 text-[10px] text-muted-foreground">
+                      {file.language}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {file.content.length} chars
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="mx-1 my-1 h-px bg-border" />
+            <DropdownMenuItem
+              onClick={() =>
+                void patchSettings({ includeContext: !settings.includeContext })
+              }
+              className={!settings.includeContext ? "text-muted-foreground" : undefined}
+            >
+              {settings.includeContext
+                ? "Disable multi-file context"
+                : "Enable multi-file context"}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <CommandPalette />
         <SettingsSheet />
       </div>
     </header>

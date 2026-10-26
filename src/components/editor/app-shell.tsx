@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import { EditorCanvas } from "@/components/editor/editor-canvas";
-import { CommandPalette } from "@/components/editor/command-palette";
 import { FileTabs } from "@/components/editor/file-tabs";
 import { InsightPanel } from "@/components/editor/insight-panel";
 import { StatusBar } from "@/components/editor/status-bar";
@@ -26,7 +25,6 @@ export function AppShell() {
       <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
         <MarkdownStyles />
         <Toolbar />
-        <CommandPalette />
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="border-b border-border bg-surface">
             <FileTabs />

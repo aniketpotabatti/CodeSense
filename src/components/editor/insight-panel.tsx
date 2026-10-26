@@ -56,18 +56,18 @@ export function InsightPanel() {
           status={explain.status}
         />
         <PanelTab
-          active={panelTab === "suggest"}
-          onClick={() => setPanelTab("suggest")}
-          icon={<Sparkles className="size-3.5" />}
-          label="Suggest"
-          status={suggest.status}
-        />
-        <PanelTab
           active={panelTab === "review"}
           onClick={() => setPanelTab("review")}
           icon={<ListChecks className="size-3.5" />}
           label="Review"
           status={review.status}
+        />
+        <PanelTab
+          active={panelTab === "suggest"}
+          onClick={() => setPanelTab("suggest")}
+          icon={<Sparkles className="size-3.5" />}
+          label="Suggest"
+          status={suggest.status}
         />
         <PanelTab
           active={panelTab === "test"}
@@ -107,13 +107,13 @@ export function InsightPanel() {
             />
           ) : panelTab === "explain" ? (
             <ExplainBody insight={explain} />
+          ) : panelTab === "review" ? (
+            <ReviewBody insight={review} />
           ) : panelTab === "suggest" ? (
             <SuggestBody
               insight={suggest}
               onTrigger={() => void runSuggestTab()}
             />
-          ) : panelTab === "review" ? (
-            <ReviewBody insight={review} />
           ) : panelTab === "test" ? (
             <TestBody insight={test} />
           ) : (

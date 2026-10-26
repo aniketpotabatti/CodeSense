@@ -113,7 +113,7 @@ export function CommandPalette() {
       <button
         type="button"
         aria-label="Open command palette (Cmd+K)"
-        className="relative inline-flex items-center justify-center rounded-md bg-surface-2 text-muted p-1.5 hover:bg-surface-2/80 hover:text-foreground"
+        className="relative inline-flex items-center justify-center rounded-md size-11 bg-transparent text-muted hover:bg-surface-2 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         onClick={() => setOpen(true)}
         title="Command palette (Cmd+K)"
       >
