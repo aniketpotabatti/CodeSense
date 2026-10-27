@@ -25,6 +25,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+
+## [0.5.3] - 2026-10-27
+
+### Added
+- None
+
+### Changed
+- Restructured Settings sheet into rounded card containers (`SettingsCard`) with subtle borders, section icons, and denser toggle rows for Modes, Performance, and AI Provider sections (`src/components/editor/settings-sheet.tsx`)
+- Changed API key placeholder from `sk-…` to `Enter Gemini, OpenAI, Claude, or xAI key…`, added client-side provider auto-detection chip/badge inside the input field, and added password masking with Eye/EyeOff show/hide toggle (`src/components/editor/settings-sheet.tsx`)
+- Added "Test Key" button in Settings sheet that runs a round-trip key verification against `/api/test-key` and displays round-trip latency (e.g. `Connected to Google Gemini (142ms)`) (`src/components/editor/settings-sheet.tsx`)
+- Polished file tabs in `src/components/editor/file-tabs.tsx`: per-language icons (`FileJson` for JSON, language-tinted `FileCode2` for TypeScript/JavaScript/Python/Go/Rust/Java, muted icons for other languages), active tab accent bar (`border-accent`), and screen-reader `aria-label="{name} ({language})"` labels on each tab (§1.3 item 1, File Tabs Polish)
+- Replaced plain-text Insight Panel empty states with styled surface cards (accent icon badges, action shortcut buttons, and Ctrl/Cmd keybinding hint chips) across Explain, Review, Suggest, Test, Profile, and AI-paused states (`src/components/editor/insight-panel.tsx`) (§1.3 item 2, Insight Panel Empty States & Onboarding)
+- Trimmed theme customizer to Dark/Light only (default Dark); moved theme icon out of the Settings sheet header into the sheet body as an Appearance row with Moon/Sun toggle buttons (`src/components/ui/sheet.tsx`, `src/components/editor/settings-sheet.tsx`, `src/lib/codesense/types.ts`)
+
+### Deprecated
+- None
+
+### Removed
+- Removed `headerActions` prop and theme `DropdownMenu` from the Settings sheet header; removed `[data-theme="dracula"]`, `[data-theme="nord"]`, `[data-theme="midnight-oled"]` CSS overrides (`src/components/ui/sheet.tsx`, `src/components/editor/settings-sheet.tsx`, `src/styles.css`)
+
+### Fixed
+- Changed Suggest button color in toolbar to match CodeSense logo's "Sense" cyan (`#00e5ff`) with dark text (`#13151b`) on hover (`src/components/editor/toolbar.tsx`)
+
+### Security
+- None
+
 ## [0.5.2] - 2026-10-26
 
 ### Added

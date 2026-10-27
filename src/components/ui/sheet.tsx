@@ -13,6 +13,7 @@ export function SheetContent({
   children,
   side = "right",
   title,
+  headerActions,
   ...props
 }: ComponentProps<typeof DialogPrimitive.Content> & {
   side?: "right" | "bottom";

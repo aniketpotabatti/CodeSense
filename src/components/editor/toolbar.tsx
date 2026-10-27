@@ -99,6 +99,7 @@ export function Toolbar() {
             <Button
               variant="secondary"
               size="sm"
+              className="bg-[#00e5ff] text-[#13151b] hover:bg-[#00e5ff]/90"
               onClick={() => void runSuggestTab()}
               disabled={suggestStatus === "streaming"}
             >

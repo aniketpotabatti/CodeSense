@@ -1,4 +1,4 @@
-import { Activity, Check, Copy, Lightbulb, ListChecks, Play, ScanText, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
+import { Activity, Check, Copy, Lightbulb, ListChecks, PauseCircle, Play, ScanText, Sparkles, Square, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -102,8 +102,10 @@ export function InsightPanel() {
         <div className="px-4 py-4">
           {aiAvailable === false && panelTab !== "complexity" ? (
             <EmptyState
+              icon={<PauseCircle className="size-5" />}
               title="AI is paused"
               body="The model gateway is not accepting requests right now. You can still edit, switch files, and save locally."
+              muted
             />
           ) : panelTab === "explain" ? (
             <ExplainBody insight={explain} />
@@ -230,21 +232,17 @@ function SuggestBody({
 
   if (insight.status === "idle" && !insight.text) {
     return (
-      <div className="flex flex-col gap-3">
-        <EmptyState
-          title="No suggestion generated yet"
-          body="Press Trigger completion or pause while typing in the editor to stream intelligent code completions at your cursor."
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-fit"
-          onClick={onTrigger}
-        >
-          <Sparkles className="size-3.5 mr-2" />
-          Trigger completion
-        </Button>
-      </div>
+      <EmptyState
+        icon={<Sparkles className="size-5" />}
+        title="No suggestion generated yet"
+        body="Press Trigger completion or pause while typing in the editor to stream intelligent code completions at your cursor."
+        action={
+          <Button variant="outline" size="sm" onClick={onTrigger}>
+            Trigger completion
+          </Button>
+        }
+        keybinding="Ctrl/Cmd+K"
+      />
     );
   }
 
@@ -310,8 +308,10 @@ function ExplainBody({
   if (insight.status === "idle" && !insight.text) {
     return (
       <EmptyState
+        icon={<ScanText className="size-5" />}
         title="Waiting on a selection"
         body="Highlight a function or press Explain to describe the code around the cursor."
+        keybinding="Ctrl/Cmd+E"
       />
     );
   }
@@ -386,6 +386,7 @@ function ReviewBody({
   const parsed = insight.review;
   const feedback = useCodesense((s) => s.feedback);
   const rateFeedback = useCodesense((s) => s.rateFeedback);
+  const runReview = useCodesense((s) => s.runReview);
   const file = useCodesense(getActiveFile);
   const fallback = useMemo(() => insight.text, [insight.text]);
   const securityFindings = useMemo(
@@ -396,8 +397,15 @@ function ReviewBody({
   if (insight.status === "idle" && !insight.text) {
     return (
       <EmptyState
+        icon={<ListChecks className="size-5" />}
         title="No review yet"
         body="Save the file or press Review for a structured pass: summary, risks, optional refactor."
+        action={
+          <Button variant="outline" size="sm" onClick={() => void runReview("manual")}>
+            Review file
+          </Button>
+        }
+        keybinding="Ctrl/Cmd+S"
       />
     );
   }
@@ -497,13 +505,20 @@ function TestBody({
   const parsed = insight.test;
   const feedback = useCodesense((s) => s.feedback);
   const rateFeedback = useCodesense((s) => s.rateFeedback);
+  const runTest = useCodesense((s) => s.runTest);
   const rated = feedback[parsed?.code ?? ""];
 
   if (insight.status === "idle" && !insight.text) {
     return (
       <EmptyState
+        icon={<Play className="size-5" />}
         title="No tests yet"
         body="Generate tests from the toolbar or command palette, or enable &quot;Tests on save&quot; in settings and press Ctrl/Cmd+S."
+        action={
+          <Button variant="outline" size="sm" onClick={() => void runTest("manual")}>
+            Generate tests
+          </Button>
+        }
       />
     );
   }
@@ -660,12 +675,42 @@ function RefactorBlock({
   );
 }
 
-function EmptyState({ title, body }: { title: string; body: string }) {
+function EmptyState({
+  title,
+  body,
+  icon,
+  action,
+  keybinding,
+  muted,
+}: {
+  title: string;
+  body: string;
+  icon: ReactNode;
+  action?: ReactNode;
+  keybinding?: string;
+  muted?: boolean;
+}) {
+  const iconRing = muted
+    ? "bg-surface/60 text-muted"
+    : "bg-accent/10 text-accent";
   return (
-    <div className="flex flex-col gap-1.5">
-      <h2 className="text-sm font-medium text-foreground">{title}</h2>
-      <p className="text-sm leading-relaxed text-muted">{body}</p>
-    </div>
+    <section className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border border-border bg-surface-2/50 p-6 shadow-border">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${iconRing} shadow-border`} aria-hidden="true">
+        {icon}
+      </div>
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <p className="text-xs leading-relaxed text-muted text-center max-w-[252px]">
+        {body}
+      </p>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+        {action}
+        {keybinding && (
+          <span className="inline-flex h-6 min-w-[34px] items-center justify-center rounded-md border border-surface px-1.5 text-[10px] font-medium text-muted shadow-border">
+            {keybinding}
+          </span>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -721,8 +766,14 @@ function ComplexityBody({
   if (!complexity) {
     return (
       <EmptyState
+        icon={<Activity className="size-5" />}
         title="No complexity profile yet"
         body="Press Profile in the toolbar to run a static complexity scan on the current file."
+        action={
+          <Button variant="outline" size="sm" onClick={() => void runComplexity()}>
+            Run profile
+          </Button>
+        }
       />
     );
   }

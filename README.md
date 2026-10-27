@@ -152,7 +152,7 @@ Changes persist to `localStorage` across sessions.
 
 ---
 
-## 📁 Project Structure
+<!-- ## 📁 Project Structure
 
 ```
 codesense/
@@ -188,7 +188,7 @@ codesense/
 ├── tsconfig.json
 ├── package.json
 └── startup.sh                  # Dev server restart contract
-```
+``` -->
 
 ---
 
